@@ -60,8 +60,7 @@ class NewSaleView(
         
         add(
             H2("🛒 Nueva Venta"),
-            createEventSection(),
-            createPaymentSection(),
+            createEventAndPaymentSection(),
             createItemsSection(),
             createTotalSection(),
             createActionButtons()
@@ -140,22 +139,29 @@ class NewSaleView(
         itemsGrid.height = "300px"
     }
     
-    private fun createEventSection(): VerticalLayout {
-        val layout = VerticalLayout()
-        layout.add(H3("📅 Información del Evento"))
-        layout.add(eventSelector)
-        return layout
-    }
-    
-    private fun createPaymentSection(): VerticalLayout {
-        val layout = VerticalLayout()
-        layout.add(H3("💳 Información de la Venta"))
+    private fun createEventAndPaymentSection(): HorizontalLayout {
+        val layout = HorizontalLayout()
+        layout.setWidthFull()
+        
+        // Sección del evento
+        val eventSection = VerticalLayout()
+        eventSection.add(H3("📅 Información del Evento"))
+        eventSection.add(eventSelector)
+        
+        // Sección de la venta
+        val paymentSection = VerticalLayout()
+        paymentSection.add(H3("💳 Información de la Venta"))
         
         val paymentLayout = HorizontalLayout()
         paymentLayout.add(saleDateField, paymentMethodField)
         paymentLayout.setWidthFull()
         
-        layout.add(paymentLayout)
+        paymentSection.add(paymentLayout)
+        
+        // Agregar ambas secciones al layout horizontal
+        layout.add(eventSection, paymentSection)
+        layout.setFlexGrow(1.0, eventSection, paymentSection)
+        
         return layout
     }
     
