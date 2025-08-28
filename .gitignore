@@ -1,0 +1,91 @@
+### Gradle ###
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Kotlin ###
+.kotlin
+
+### Node.js (para Vaadin frontend) ###
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+### Vaadin ###
+webpack.generated.js
+src/main/frontend/generated/
+frontend/generated/
+pnpmfile.js
+vite.generated.ts
+
+### Database ###
+*.db
+*.sqlite
+*.sqlite3
+/data/
+h2/
+
+### Logs ###
+*.log
+logs/
+
+### Temporary files ###
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+### Environment specific ###
+.env
+.env.local
+.env.*.local
+*.local.properties
+
+### Claude Code ###
+.claude/
+
+### IDE specific ###
+*.swp
+*.swo
+*~
+
+### Spring Boot ###
+HELP.md
+!**/src/main/**/HELP.md
+!**/src/test/**/HELP.md
