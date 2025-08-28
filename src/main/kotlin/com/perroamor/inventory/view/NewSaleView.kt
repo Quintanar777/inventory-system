@@ -39,8 +39,6 @@ class NewSaleView(
     private val eventSelector = ComboBox<Event>("Evento")
     private val saleDateField = DateTimePicker("Fecha de Venta")
     private val paymentMethodField = ComboBox<String>("Método de Pago")
-    private val customerNameField = TextField("Nombre del Cliente (Opcional)")
-    private val customerPhoneField = TextField("Teléfono (Opcional)")
     
     private val itemsGrid = Grid<SaleItemDialog.SaleItemData>()
     private val totalLabel = Span("TOTAL: $0.00")
@@ -63,7 +61,7 @@ class NewSaleView(
         add(
             H2("🛒 Nueva Venta"),
             createEventSection(),
-            createCustomerSection(),
+            createPaymentSection(),
             createItemsSection(),
             createTotalSection(),
             createActionButtons()
@@ -107,9 +105,6 @@ class NewSaleView(
         
         paymentMethodField.setItems(paymentMethods)
         paymentMethodField.value = "Efectivo" // Por defecto para ventas presenciales
-        
-        customerNameField.placeholder = "Opcional"
-        customerPhoneField.placeholder = "Opcional"
     }
     
     private fun configureItemsGrid() {
@@ -152,19 +147,15 @@ class NewSaleView(
         return layout
     }
     
-    private fun createCustomerSection(): VerticalLayout {
+    private fun createPaymentSection(): VerticalLayout {
         val layout = VerticalLayout()
-        layout.add(H3("👤 Información del Cliente"))
-        
-        val customerLayout = HorizontalLayout()
-        customerLayout.add(customerNameField, customerPhoneField)
-        customerLayout.setWidthFull()
+        layout.add(H3("💳 Información de la Venta"))
         
         val paymentLayout = HorizontalLayout()
         paymentLayout.add(saleDateField, paymentMethodField)
         paymentLayout.setWidthFull()
         
-        layout.add(customerLayout, paymentLayout)
+        layout.add(paymentLayout)
         return layout
     }
     
@@ -259,8 +250,6 @@ class NewSaleView(
         saleItems.clear()
         updateItemsGrid()
         updateTotal()
-        customerNameField.clear()
-        customerPhoneField.clear()
         
         Notification.show("Venta limpiada", 2000, Notification.Position.TOP_CENTER)
     }
@@ -273,8 +262,8 @@ class NewSaleView(
             val sale = Sale(
                 event = event,
                 saleDate = saleDateField.value,
-                customerName = if (customerNameField.value.isBlank()) null else customerNameField.value,
-                customerPhone = if (customerPhoneField.value.isBlank()) null else customerPhoneField.value,
+                customerName = null,
+                customerPhone = null,
                 paymentMethod = paymentMethodField.value,
                 totalAmount = saleItems.sumOf { it.getTotalPrice() }
             )
