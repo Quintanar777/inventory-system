@@ -80,6 +80,14 @@ class MainLayout : AppLayout() {
 
         nav.addItem(
             SideNavItem(
+                "Catálogos",
+                "catalogs",
+                Icon(VaadinIcon.FOLDER)
+            )
+        )
+
+        nav.addItem(
+            SideNavItem(
                 "Eventos",
                 "events",
                 Icon(VaadinIcon.CALENDAR)

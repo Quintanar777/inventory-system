@@ -6,6 +6,7 @@ import com.perroamor.inventory.entity.SaleItem
 import com.perroamor.inventory.service.EventService
 import com.perroamor.inventory.service.SaleService
 import com.perroamor.inventory.view.component.SaleItemDialog
+import com.perroamor.inventory.view.component.ProductSearchMobile
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
@@ -33,7 +34,8 @@ import java.util.*
 class NewSaleView(
     @Autowired private val eventService: EventService,
     @Autowired private val saleService: SaleService,
-    @Autowired private val saleItemDialog: SaleItemDialog
+    @Autowired private val saleItemDialog: SaleItemDialog,
+    @Autowired private val productSearchMobile: ProductSearchMobile
 ) : VerticalLayout(), BeforeEnterObserver {
     
     private val eventSelector = ComboBox<Event>("Evento")
@@ -177,9 +179,18 @@ class NewSaleView(
         }
         addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
         
-        headerLayout.add(addButton)
+        val mobileSearchButton = Button("Buscar (iPad)", Icon(VaadinIcon.MOBILE)) {
+            openMobileSearch()
+        }
+        mobileSearchButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        mobileSearchButton.element.style.set("margin-left", "8px")
+        
+        val buttonsLayout = HorizontalLayout(addButton, mobileSearchButton)
+        buttonsLayout.isSpacing = true
+        
+        headerLayout.add(buttonsLayout)
         headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
-        headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER, addButton)
+        headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER, buttonsLayout)
         
         layout.add(headerLayout, itemsGrid)
         return layout
@@ -225,6 +236,28 @@ class NewSaleView(
         }
         
         saleItemDialog.show { saleItemData ->
+            saleItems.add(saleItemData)
+            updateItemsGrid()
+            updateTotal()
+        }
+    }
+    
+    private fun openMobileSearch() {
+        if (selectedEventId == null) {
+            Notification.show("Selecciona un evento primero", 3000, Notification.Position.TOP_CENTER)
+            return
+        }
+        
+        productSearchMobile.show { selectionData ->
+            // Crear un SaleItemData con los valores seleccionados en el diálogo móvil
+            val saleItemData = SaleItemDialog.SaleItemData(
+                product = selectionData.product,
+                variant = null, // Por ahora sin variantes
+                quantity = selectionData.quantity,
+                unitPrice = selectionData.unitPrice,
+                personalization = null
+            )
+            
             saleItems.add(saleItemData)
             updateItemsGrid()
             updateTotal()

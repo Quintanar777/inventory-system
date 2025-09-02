@@ -1,7 +1,9 @@
 package com.perroamor.inventory.view
 
 import com.perroamor.inventory.entity.Product
+import com.perroamor.inventory.entity.Brand
 import com.perroamor.inventory.service.ProductService
+import com.perroamor.inventory.service.BrandService
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
@@ -25,47 +27,47 @@ import java.math.BigDecimal
 
 @Route("", layout = MainLayout::class)
 @PageTitle("Inventario")
-class ProductView(@Autowired private val productService: ProductService) : VerticalLayout() {
-    
+class ProductView(
+    private val productService: ProductService,
+    private val brandService: BrandService
+) : VerticalLayout() {
+
     private val grid = Grid(Product::class.java)
     private val nameField = TextField("Nombre")
     private val priceField = BigDecimalField("Precio")
     private val categoryField = ComboBox<String>("Categoría")
-    private val brandField = ComboBox<String>("Marca")
+    private val brandField = ComboBox<Brand>("Marca")
     private val stockField = IntegerField("Stock")
     private val descriptionField = TextField("Descripción")
-    
+
     private val categories = mutableListOf(
         "Collares",
-        "Correas", 
+        "Correas",
         "Mochilas",
         "Personalización",
         "Accesorios",
         "Juguetes"
     )
-    
-    private val brands = listOf(
-        "Perro Amor",
-        "Perra Madre"
-    )
-    
+
+    // Las marcas ahora se cargan dinámicamente desde la base de datos
+
     init {
         setSizeFull()
         configureGrid()
         configureForm()
-        
+
         add(
             createToolbar(),
             grid
         )
-        
+
         updateList()
     }
-    
+
     private fun configureGrid() {
         grid.setSizeFull()
         grid.setColumns("id", "name", "brand", "price", "category", "stock")
-        
+
         // Configurar anchos de columnas
         grid.getColumnByKey("id").setWidth("80px").setFlexGrow(0).setHeader("ID")
         grid.getColumnByKey("name").setHeader("Nombre").setFlexGrow(2)
@@ -73,15 +75,15 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
         grid.getColumnByKey("price").setHeader("Precio").setWidth("120px").setFlexGrow(0)
         grid.getColumnByKey("category").setHeader("Categoría").setFlexGrow(1)
         grid.getColumnByKey("stock").setHeader("Stock").setWidth("100px").setFlexGrow(0)
-        
+
         grid.addColumn { product ->
             if (product.hasVariants) "🔀 Sí" else "➖ No"
         }.setHeader("Tiene Variantes").setWidth("140px").setFlexGrow(0)
-        
+
         grid.addColumn { product ->
             if (product.stock <= 5) "⚠️ BAJO" else "✅ OK"
         }.setHeader("Estado Stock").setWidth("130px").setFlexGrow(0)
-        
+
         // Columna de acción para productos con variantes
         grid.addComponentColumn { product ->
             if (product.hasVariants) {
@@ -98,16 +100,16 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
                 }
             }
         }.setHeader("Variantes").setWidth("160px").setFlexGrow(0)
-        
+
         grid.asSingleSelect().addValueChangeListener { event ->
             event.value?.let { editProduct(it) }
         }
     }
-    
+
     private fun configureForm() {
         priceField.value = BigDecimal.ZERO
         stockField.value = 0
-        
+
         categoryField.setItems(categories)
         categoryField.isAllowCustomValue = true
         categoryField.addCustomValueSetListener { event ->
@@ -118,56 +120,56 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
                 categoryField.value = customValue
             }
         }
-        
-        brandField.setItems(brands)
-        brandField.value = "Perro Amor" // Valor por defecto
+
+        updateBrandList()
         brandField.isAllowCustomValue = false
+        brandField.setItemLabelGenerator { it.name }
     }
-    
+
     private fun createToolbar(): HorizontalLayout {
         val addButton = Button("Agregar Producto") { addProduct() }
         addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        
+
         val refreshButton = Button("Actualizar") { updateList() }
-        
+
         return HorizontalLayout(addButton, refreshButton)
     }
-    
+
     private fun addProduct() {
         showProductDialog(null)
     }
-    
+
     private fun editProduct(product: Product) {
         showProductDialog(product)
     }
-    
+
     private fun showProductDialog(product: Product?) {
         val dialog = Dialog()
         val formLayout = FormLayout()
-        
+
         if (product != null) {
             nameField.value = product.name
             priceField.value = product.price
             categoryField.value = product.category
-            brandField.value = product.brand
+            brandField.value = brandService.findByName(product.brand)
             stockField.value = product.stock
             descriptionField.value = product.description ?: ""
         } else {
             clearForm()
         }
-        
+
         formLayout.add(nameField, priceField, categoryField, brandField, stockField, descriptionField)
-        
+
         val saveButton = Button("Guardar") {
             saveProduct(product)
             dialog.close()
         }
         saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        
+
         val cancelButton = Button("Cancelar") { dialog.close() }
-        
+
         val buttonLayout = HorizontalLayout(saveButton, cancelButton)
-        
+
         dialog.add(
             VerticalLayout(
                 if (product != null) H1("Editar Producto") else H1("Nuevo Producto"),
@@ -175,10 +177,10 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
                 buttonLayout
             )
         )
-        
+
         dialog.open()
     }
-    
+
     private fun saveProduct(existingProduct: Product?) {
         try {
             val product = if (existingProduct != null) {
@@ -186,7 +188,7 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
                     name = nameField.value,
                     price = priceField.value,
                     category = categoryField.value,
-                    brand = brandField.value,
+                    brand = brandField.value?.name ?: "",
                     stock = stockField.value,
                     description = if (descriptionField.value.isBlank()) null else descriptionField.value
                 )
@@ -195,12 +197,12 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
                     name = nameField.value,
                     price = priceField.value,
                     category = categoryField.value,
-                    brand = brandField.value,
+                    brand = brandField.value?.name ?: "",
                     stock = stockField.value,
                     description = if (descriptionField.value.isBlank()) null else descriptionField.value
                 )
             }
-            
+
             productService.save(product)
             updateList()
             clearForm()
@@ -213,22 +215,32 @@ class ProductView(@Autowired private val productService: ProductService) : Verti
             Notification.show("Error: ${e.message}", 3000, Notification.Position.TOP_CENTER)
         }
     }
-    
+
     private fun clearForm() {
         nameField.clear()
         priceField.value = BigDecimal.ZERO
         categoryField.clear()
-        brandField.value = "Perro Amor" // Valor por defecto
+        brandField.clear()
         stockField.value = 0
         descriptionField.clear()
     }
-    
+
     private fun navigateToVariants(product: Product) {
         // Navegar a la vista de variantes con el ID del producto como parámetro
         UI.getCurrent().navigate("variants/${product.id}")
     }
-    
+
     private fun updateList() {
         grid.setItems(productService.findAll())
+    }
+    
+    private fun updateBrandList() {
+        val activeBrands = brandService.findActive()
+        brandField.setItems(activeBrands)
+        
+        // Si hay marcas disponibles, seleccionar la primera como valor por defecto
+        if (activeBrands.isNotEmpty()) {
+            brandField.value = activeBrands.first()
+        }
     }
 }
