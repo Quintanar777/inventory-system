@@ -23,10 +23,12 @@ import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.router.Route
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
 
 @Route("", layout = MainLayout::class)
 @PageTitle("Inventario")
+@RolesAllowed("ADMIN", "MANAGER")
 class ProductView(
     private val productService: ProductService,
     private val brandService: BrandService

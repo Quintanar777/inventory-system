@@ -20,9 +20,11 @@ import com.vaadin.flow.component.checkbox.Checkbox
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.router.Route
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 
 @Route("brands", layout = MainLayout::class)
 @PageTitle("Gestión de Marcas")
+@RolesAllowed("ADMIN", "MANAGER")
 class BrandsView(@Autowired private val brandService: BrandService) : VerticalLayout() {
     
     private val grid = Grid(Brand::class.java)

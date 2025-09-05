@@ -22,11 +22,13 @@ import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.router.Route
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 import java.time.LocalDate
 import java.util.*
 
 @Route("events", layout = MainLayout::class)
 @PageTitle("Eventos")
+@RolesAllowed("ADMIN", "MANAGER")
 class EventView(@Autowired private val eventService: EventService) : VerticalLayout() {
     
     private val grid = Grid(Event::class.java)

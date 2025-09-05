@@ -2,19 +2,26 @@ package com.perroamor.inventory.view
 
 import com.vaadin.flow.component.applayout.AppLayout
 import com.vaadin.flow.component.applayout.DrawerToggle
+import com.vaadin.flow.component.button.Button
+import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.html.H1
 import com.vaadin.flow.component.html.Header
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.Scroller
 import com.vaadin.flow.component.sidenav.SideNav
 import com.vaadin.flow.component.sidenav.SideNavItem
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.theme.lumo.LumoUtility
+import com.perroamor.inventory.security.SecurityService
+import jakarta.annotation.security.PermitAll
+import org.springframework.beans.factory.annotation.Autowired
 
 @PageTitle("Perro Amor - Sistema de Inventario")
-class MainLayout : AppLayout() {
+@PermitAll
+class MainLayout(@Autowired private val securityService: SecurityService) : AppLayout() {
 
     private lateinit var viewTitle: H1
 
@@ -31,15 +38,39 @@ class MainLayout : AppLayout() {
         viewTitle = H1()
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE)
 
-        val header = Header(toggle, viewTitle)
+        // User info and logout section
+        val userSection = createUserSection()
+
+        val header = Header(toggle, viewTitle, userSection)
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
             LumoUtility.Display.FLEX,
-            LumoUtility.Padding.End.MEDIUM,
+            LumoUtility.JustifyContent.BETWEEN,
+            LumoUtility.Padding.Horizontal.MEDIUM,
             LumoUtility.Width.FULL
         )
 
         addToNavbar(false, header)
+    }
+
+    private fun createUserSection(): HorizontalLayout {
+        val userSection = HorizontalLayout()
+        userSection.addClassNames(LumoUtility.AlignItems.CENTER)
+
+        if (securityService.isAuthenticated()) {
+            val currentUser = securityService.getAuthenticatedUser()
+            val userName = Span("👤 ${currentUser?.fullName ?: securityService.getCurrentUsername() ?: "Usuario"}")
+            userName.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY)
+
+            val logoutButton = Button("Cerrar Sesión", Icon(VaadinIcon.SIGN_OUT)) {
+                securityService.logout()
+            }
+            logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
+
+            userSection.add(userName, logoutButton)
+        }
+
+        return userSection
     }
 
     private fun addDrawerContent() {

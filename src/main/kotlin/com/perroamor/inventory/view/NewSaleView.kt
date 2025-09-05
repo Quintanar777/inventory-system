@@ -24,6 +24,7 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
@@ -31,6 +32,7 @@ import java.util.*
 @Route("new-sale", layout = MainLayout::class)
 @RouteAlias("new-sale/:eventId", layout = MainLayout::class)
 @PageTitle("Nueva Venta")
+@RolesAllowed("ADMIN", "MANAGER", "EMPLOYEE")
 class NewSaleView(
     @Autowired private val eventService: EventService,
     @Autowired private val saleService: SaleService,

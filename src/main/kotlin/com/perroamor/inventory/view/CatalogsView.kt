@@ -13,9 +13,11 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.UI
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.router.Route
+import jakarta.annotation.security.RolesAllowed
 
 @Route("catalogs", layout = MainLayout::class)
 @PageTitle("Catálogos")
+@RolesAllowed("ADMIN", "MANAGER")
 class CatalogsView : VerticalLayout() {
     
     init {

@@ -9,6 +9,8 @@ import com.perroamor.inventory.service.ProductService
 import com.perroamor.inventory.service.ProductVariantService
 import com.perroamor.inventory.service.EventService
 import com.perroamor.inventory.service.SaleService
+import com.perroamor.inventory.service.RoleService
+import com.perroamor.inventory.service.UserService
 import org.springframework.boot.CommandLineRunner
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -20,10 +22,18 @@ class DataInitializer(
     private val productService: ProductService,
     private val variantService: ProductVariantService,
     private val eventService: EventService,
-    private val saleService: SaleService
+    private val saleService: SaleService,
+    private val roleService: RoleService,
+    private val userService: UserService
 ) : CommandLineRunner {
     
     override fun run(vararg args: String?) {
+        // PRIMERO: Inicializar roles y usuarios (CRÍTICO para autenticación)
+        println("🔐 Inicializando sistema de autenticación...")
+        roleService.initializeDefaultRoles()
+        userService.initializeDefaultAdmin()
+        println("✅ Sistema de autenticación inicializado")
+        
         // Los productos ya se inicializan via Flyway migrations
         // Solo inicializar si no hay productos (fallback para desarrollo)
         if (productService.findAll().isEmpty()) {

@@ -21,11 +21,13 @@ import com.vaadin.flow.component.textfield.IntegerField
 import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
 
 @Route("variants", layout = MainLayout::class)
 @RouteAlias("variants/:productId", layout = MainLayout::class)
 @PageTitle("Variantes de Productos")
+@RolesAllowed("ADMIN", "MANAGER")
 class ProductVariantView(
     @Autowired private val productService: ProductService,
     @Autowired private val variantService: ProductVariantService

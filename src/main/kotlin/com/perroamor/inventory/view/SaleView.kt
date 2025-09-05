@@ -22,11 +22,13 @@ import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.FlexComponent
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
+import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
 
 @Route("sales", layout = MainLayout::class)
 @RouteAlias("sales/:eventId", layout = MainLayout::class)
 @PageTitle("Ventas")
+@RolesAllowed("ADMIN", "MANAGER", "EMPLOYEE")
 class SaleView(
     @Autowired private val saleService: SaleService,
     @Autowired private val eventService: EventService
