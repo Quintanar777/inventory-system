@@ -141,6 +141,17 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
             )
         )
 
+        // Gestión de Usuarios (solo para ADMIN)
+        if (securityService.isAdmin()) {
+            nav.addItem(
+                SideNavItem(
+                    "Usuarios",
+                    "users",
+                    Icon(VaadinIcon.USERS)
+                )
+            )
+        }
+
         nav.addItem(
             SideNavItem(
                 "Reportes",

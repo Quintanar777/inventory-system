@@ -146,6 +146,70 @@ class UserService(
         }
     }
     
+    // Métodos adicionales para UserManagementView
+    fun createUser(
+        username: String,
+        password: String,
+        email: String,
+        fullName: String,
+        role: Role,
+        isActive: Boolean
+    ): User {
+        val user = User(
+            username = username,
+            password = passwordEncoder.encode(password),
+            email = email,
+            fullName = fullName,
+            role = role,
+            isActive = isActive
+        )
+        return save(user)
+    }
+    
+    fun updateUser(
+        id: Long,
+        username: String,
+        email: String,
+        fullName: String,
+        role: Role,
+        isActive: Boolean
+    ): User? {
+        val user = findById(id)
+        return user?.let {
+            val updatedUser = it.copy(
+                username = username,
+                email = email,
+                fullName = fullName,
+                role = role,
+                isActive = isActive,
+                updatedAt = LocalDateTime.now()
+            )
+            save(updatedUser)
+        }
+    }
+    
+    fun updateUserStatus(id: Long, isActive: Boolean): User? {
+        val user = findById(id)
+        return user?.let {
+            val updatedUser = it.copy(
+                isActive = isActive,
+                updatedAt = LocalDateTime.now()
+            )
+            save(updatedUser)
+        }
+    }
+    
+    fun resetPassword(id: Long, newPassword: String): User? {
+        val user = findById(id)
+        return user?.let {
+            val updatedUser = it.copy(
+                password = passwordEncoder.encode(newPassword),
+                updatedAt = LocalDateTime.now()
+            )
+            save(updatedUser)
+        }
+    }
+
     // Métodos de conveniencia para obtener usuarios por rol
     fun getAdmins(): List<User> = roleService.getAdminRole()?.let { findByRoleActive(it) } ?: emptyList()
     fun getManagers(): List<User> = roleService.getManagerRole()?.let { findByRoleActive(it) } ?: emptyList()
