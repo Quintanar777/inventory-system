@@ -1,0 +1,18 @@
+{
+  "frontendFolder": "/home/equintanar/Documents/develop/repositories/inventory-system/./src/main/frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "/home/equintanar/Documents/develop/repositories/inventory-system/./src/main/frontend/generated/jar-resources",
+  "staticOutput": "/home/equintanar/Documents/develop/repositories/inventory-system/target/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "/home/equintanar/Documents/develop/repositories/inventory-system/target/classes/META-INF/VAADIN/config",
+  "frontendBundleOutput": "/home/equintanar/Documents/develop/repositories/inventory-system/target/classes/META-INF/VAADIN/webapp",
+  "devBundleOutput": "/home/equintanar/Documents/develop/repositories/inventory-system/target/dev-bundle/webapp",
+  "devBundleStatsOutput": "/home/equintanar/Documents/develop/repositories/inventory-system/target/dev-bundle/config",
+  "i18nOutput": "target/classes/vaadin-i18n",
+  "jarResourcesFolder": "/home/equintanar/Documents/develop/repositories/inventory-system/./src/main/frontend/generated/jar-resources",
+  "themeName": "",
+  "clientServiceWorkerSource": "/home/equintanar/Documents/develop/repositories/inventory-system/target/sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}

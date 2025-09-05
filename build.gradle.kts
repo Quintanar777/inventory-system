@@ -25,7 +25,7 @@ extra["vaadinVersion"] = "24.8.6"
 
 // Configuración Vaadin
 vaadin {
-    productionMode = true
+    productionMode = project.hasProperty("production") || project.hasProperty("vaadin.productionMode")
     pnpmEnable = true
 }
 
@@ -69,17 +69,35 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// Configuración del empaquetado
-tasks.jar {
-    enabled = false
+// Configuración de empaquetado
+tasks.withType<Jar> {
+    enabled = true
+    archiveFileName.set("${project.name}-${project.version}.jar")
 }
 
 tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar> {
     enabled = true
     archiveFileName.set("${project.name}.jar")
+    manifest {
+        attributes(
+            "Main-Class" to "org.springframework.boot.loader.launch.JarLauncher",
+            "Start-Class" to "${project.group}.${project.name}.ApplicationKt"
+        )
+    }
 }
 
-// Asegurar que se construya el frontend
+// Dependencias para asegurar el build del frontend
 tasks.named("build") {
     dependsOn("vaadinBuildFrontend")
+}
+
+tasks.named("bootJar") {
+    dependsOn("vaadinBuildFrontend")
+}
+
+// Task personalizado para Railway
+tasks.register("railwayBuild") {
+    group = "build"
+    description = "Build for Railway deployment"
+    dependsOn("clean", "vaadinBuildFrontend", "bootJar")
 }
