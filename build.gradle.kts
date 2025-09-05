@@ -5,7 +5,6 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     id("com.vaadin") version "24.8.6"
     kotlin("plugin.jpa") version "1.9.25"
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
 group = "com.perroamor"
