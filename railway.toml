@@ -1,11 +1,10 @@
 [build]
 builder = "NIXPACKS"
 
-[build.nginx]
-enable = false
-
 [build.args]
-BULD_COMMAND = "./gradlew clean bootJar -Pproduction -x test -x check"
+JAVA_VERSION = "21"
+JAVA_DISTRO = "temurin"  # Eclipse Temurin (Adoptium)
+BUILD_COMMAND = "./gradlew clean bootJar -Pproduction -x test -x check"
 START_COMMAND = "java -jar build/libs/inventory-system.jar"
 
 [deploy]
