@@ -23,6 +23,12 @@ repositories {
 
 extra["vaadinVersion"] = "24.8.6"
 
+// Configuración Vaadin
+vaadin {
+    productionMode = true
+    pnpmEnable = true
+}
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -34,7 +40,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
-    runtimeOnly("com.h2database:h2")
+    developmentOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
@@ -63,4 +69,17 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-tasks.jar { enabled = false }
+// Configuración del empaquetado
+tasks.jar {
+    enabled = false
+}
+
+tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar> {
+    enabled = true
+    archiveFileName.set("${project.name}.jar")
+}
+
+// Asegurar que se construya el frontend
+tasks.named("build") {
+    dependsOn("vaadinBuildFrontend")
+}
