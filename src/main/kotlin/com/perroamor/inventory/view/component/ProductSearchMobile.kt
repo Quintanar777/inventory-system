@@ -18,6 +18,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
+import com.vaadin.flow.component.checkbox.Checkbox
 import java.math.BigDecimal
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -33,9 +34,11 @@ class ProductSearchMobile(
     private lateinit var brandButtonsLayout: HorizontalLayout
     private lateinit var productsGridArea: Div
     private lateinit var selectedBrandLabel: Span
+    private lateinit var wholesaleModeToggle: Checkbox
     
     private var brands = listOf<Brand>()
     private var currentSelectedBrand: Brand? = null
+    private var isWholesaleMode: Boolean = false
     data class ProductSelectionData(
         val product: Product,
         val quantity: Int,
@@ -101,11 +104,16 @@ class ProductSearchMobile(
         dialog.add(contentArea)
     }
     
-    private fun createHeader(): HorizontalLayout {
-        val headerLayout = HorizontalLayout()
-        headerLayout.setWidthFull()
-        headerLayout.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
-        headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
+    private fun createHeader(): VerticalLayout {
+        val headerContainer = VerticalLayout()
+        headerContainer.isSpacing = false
+        headerContainer.isPadding = false
+        
+        // Fila superior con título y botón cerrar
+        val topRow = HorizontalLayout()
+        topRow.setWidthFull()
+        topRow.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
+        topRow.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
         
         val title = H3("🔍 Buscar Productos")
         title.element.style.set("margin", "0")
@@ -116,9 +124,34 @@ class ProductSearchMobile(
         closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON)
         closeButton.element.setAttribute("aria-label", "Cerrar")
         
-        headerLayout.add(title, closeButton)
+        topRow.add(title, closeButton)
         
-        return headerLayout
+        // Fila inferior con el toggle de precios mayoreo
+        val bottomRow = HorizontalLayout()
+        bottomRow.setWidthFull()
+        bottomRow.justifyContentMode = FlexComponent.JustifyContentMode.CENTER
+        bottomRow.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
+        bottomRow.element.style.set("padding-top", "10px")
+        
+        wholesaleModeToggle = Checkbox("💰 Precios de Mayoreo")
+        wholesaleModeToggle.value = false
+        wholesaleModeToggle.element.style.set("font-size", "1.1em")
+        wholesaleModeToggle.element.style.set("font-weight", "500")
+        
+        // Listener para cambiar entre modos
+        wholesaleModeToggle.addValueChangeListener { event ->
+            isWholesaleMode = event.value
+            // Refrescar productos si hay una marca seleccionada
+            currentSelectedBrand?.let { brand ->
+                loadProductsForBrand(brand)
+            }
+        }
+        
+        bottomRow.add(wholesaleModeToggle)
+        
+        headerContainer.add(topRow, bottomRow)
+        
+        return headerContainer
     }
     
     private fun createBrandButtons(): HorizontalLayout {
@@ -190,15 +223,15 @@ class ProductSearchMobile(
     private fun selectBrand(brand: Brand) {
         currentSelectedBrand = brand
         selectedBrandLabel.text = "Productos de: ${brand.name}"
-        loadProductsForBrand(brand.name)
+        loadProductsForBrand(brand)
     }
     
-    private fun loadProductsForBrand(brand: String) {
+    private fun loadProductsForBrand(brand: Brand) {
         // Limpiar área de productos
         productsGridArea.removeAll()
         
         // Obtener productos de la marca seleccionada
-        val products = productService.findByBrand(brand)
+        val products = productService.findByBrand(brand.name)
         
         if (products.isEmpty()) {
             val emptyMessage = Span("No hay productos disponibles para esta marca")
@@ -264,7 +297,9 @@ class ProductSearchMobile(
         categorySpan.element.style.set("color", "var(--lumo-secondary-text-color)")
         categorySpan.element.style.set("margin-bottom", "4px")
         
-        val priceSpan = Span("$${product.price}")
+        val currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
+        val priceLabel = if (isWholesaleMode) "Mayoreo" else "Regular"
+        val priceSpan = Span("$${currentPrice} (${priceLabel})")
         priceSpan.element.style.set("font-weight", "bold")
         priceSpan.element.style.set("font-size", "1.2em")
         priceSpan.element.style.set("color", "var(--lumo-success-text-color)")
@@ -363,15 +398,17 @@ class ProductSearchMobile(
         quantityField.width = "120px"
         quantityField.element.style.set("font-size", "1.1em")
         
+        var currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
         val priceField = BigDecimalField("Precio Unitario")
-        priceField.value = product.price
+        priceField.value = currentPrice
         //priceField.min = BigDecimal.ZERO
         priceField.width = "150px"
         priceField.element.style.set("font-size", "1.1em")
         priceField.prefixComponent = Span("$")
         
         // Total calculado
-        val totalLabel = Span("Total: $${product.price}")
+        currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
+        val totalLabel = Span("Total: $${currentPrice}")
         totalLabel.element.style.set("font-weight", "bold")
         totalLabel.element.style.set("font-size", "1.3em")
         totalLabel.element.style.set("color", "var(--lumo-success-text-color)")
@@ -426,7 +463,8 @@ class ProductSearchMobile(
         
         val confirmButton = Button("Agregar a Venta", Icon(VaadinIcon.CHECK)) {
             val finalQuantity = quantityField.value ?: 1
-            val finalPrice = priceField.value ?: product.price
+            val currentProductPrice = if (isWholesaleMode) product.wholesalePrice else product.price
+            val finalPrice = priceField.value ?: currentProductPrice
             
             // Validación final
             if (product.stock > 0 && finalQuantity > product.stock) {

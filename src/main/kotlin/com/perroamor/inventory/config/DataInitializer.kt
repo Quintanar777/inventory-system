@@ -61,6 +61,7 @@ class DataInitializer(
             Product(
                 name = "Collar Santo Remedio",
                 price = BigDecimal("199.00"),
+                wholesalePrice = BigDecimal("169.15"),
                 category = "Collares",
                 brand = "Perro Amor",
                 stock = 0, // Sin stock, usa variantes
@@ -71,6 +72,7 @@ class DataInitializer(
             Product(
                 name = "Correa Binomio",
                 price = BigDecimal("189.00"),
+                wholesalePrice = BigDecimal("160.65"),
                 category = "Correas",
                 brand = "Perro Amor",
                 stock = 0, // Sin stock, usa variantes
@@ -81,6 +83,7 @@ class DataInitializer(
             Product(
                 name = "Porta Alerta",
                 price = BigDecimal("139.00"),
+                wholesalePrice = BigDecimal("118.15"),
                 category = "Correas",
                 brand = "Perro Amor",
                 stock = 0, // Sin stock, usa variantes
@@ -91,6 +94,7 @@ class DataInitializer(
             Product(
                 name = "Collar Vida Mía",
                 price = BigDecimal("199.00"),
+                wholesalePrice = BigDecimal("169.15"),
                 category = "Collares",
                 brand = "Perro Amor",
                 stock = 10,
@@ -101,6 +105,7 @@ class DataInitializer(
             Product(
                 name = "Mochila Mimi",
                 price = BigDecimal("289.00"),
+                wholesalePrice = BigDecimal("245.65"),
                 category = "Mochilas",
                 brand = "Perro Amor",
                 stock = 5,
@@ -111,6 +116,7 @@ class DataInitializer(
             Product(
                 name = "Grabado de Nombre",
                 price = BigDecimal("50.00"),
+                wholesalePrice = BigDecimal("42.50"),
                 category = "Personalización",
                 brand = "Perro Amor",
                 stock = 100,
@@ -121,6 +127,7 @@ class DataInitializer(
             Product(
                 name = "Grabado de Teléfono",
                 price = BigDecimal("50.00"),
+                wholesalePrice = BigDecimal("42.50"),
                 category = "Personalización",
                 brand = "Perro Amor",
                 stock = 100,

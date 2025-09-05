@@ -36,7 +36,8 @@ class ProductView(
 
     private val grid = Grid(Product::class.java)
     private val nameField = TextField("Nombre")
-    private val priceField = BigDecimalField("Precio")
+    private val priceField = BigDecimalField("Precio Regular")
+    private val wholesalePriceField = BigDecimalField("Precio Mayoreo")
     private val categoryField = ComboBox<String>("Categoría")
     private val brandField = ComboBox<Brand>("Marca")
     private val stockField = IntegerField("Stock")
@@ -68,13 +69,14 @@ class ProductView(
 
     private fun configureGrid() {
         grid.setSizeFull()
-        grid.setColumns("id", "name", "brand", "price", "category", "stock")
+        grid.setColumns("id", "name", "brand", "price", "wholesalePrice", "category", "stock")
 
         // Configurar anchos de columnas
         grid.getColumnByKey("id").setWidth("80px").setFlexGrow(0).setHeader("ID")
         grid.getColumnByKey("name").setHeader("Nombre").setFlexGrow(2)
         grid.getColumnByKey("brand").setHeader("Marca").setFlexGrow(1)
-        grid.getColumnByKey("price").setHeader("Precio").setWidth("120px").setFlexGrow(0)
+        grid.getColumnByKey("price").setHeader("Precio Regular").setWidth("130px").setFlexGrow(0)
+        grid.getColumnByKey("wholesalePrice").setHeader("Precio Mayoreo").setWidth("130px").setFlexGrow(0)
         grid.getColumnByKey("category").setHeader("Categoría").setFlexGrow(1)
         grid.getColumnByKey("stock").setHeader("Stock").setWidth("100px").setFlexGrow(0)
 
@@ -110,7 +112,16 @@ class ProductView(
 
     private fun configureForm() {
         priceField.value = BigDecimal.ZERO
+        wholesalePriceField.value = BigDecimal.ZERO
         stockField.value = 0
+        
+        // Agregar listener para auto-calcular precio de mayoreo (85% del precio regular)
+        priceField.addValueChangeListener { event ->
+            val regularPrice = event.value
+            if (regularPrice != null && regularPrice > BigDecimal.ZERO) {
+                wholesalePriceField.value = regularPrice.multiply(BigDecimal("0.85"))
+            }
+        }
 
         categoryField.setItems(categories)
         categoryField.isAllowCustomValue = true
@@ -152,6 +163,7 @@ class ProductView(
         if (product != null) {
             nameField.value = product.name
             priceField.value = product.price
+            wholesalePriceField.value = product.wholesalePrice
             categoryField.value = product.category
             brandField.value = brandService.findByName(product.brand)
             stockField.value = product.stock
@@ -160,7 +172,7 @@ class ProductView(
             clearForm()
         }
 
-        formLayout.add(nameField, priceField, categoryField, brandField, stockField, descriptionField)
+        formLayout.add(nameField, priceField, wholesalePriceField, categoryField, brandField, stockField, descriptionField)
 
         val saveButton = Button("Guardar") {
             saveProduct(product)
@@ -189,6 +201,7 @@ class ProductView(
                 existingProduct.copy(
                     name = nameField.value,
                     price = priceField.value,
+                    wholesalePrice = wholesalePriceField.value,
                     category = categoryField.value,
                     brand = brandField.value?.name ?: "",
                     stock = stockField.value,
@@ -198,6 +211,7 @@ class ProductView(
                 Product(
                     name = nameField.value,
                     price = priceField.value,
+                    wholesalePrice = wholesalePriceField.value,
                     category = categoryField.value,
                     brand = brandField.value?.name ?: "",
                     stock = stockField.value,
@@ -221,6 +235,7 @@ class ProductView(
     private fun clearForm() {
         nameField.clear()
         priceField.value = BigDecimal.ZERO
+        wholesalePriceField.value = BigDecimal.ZERO
         categoryField.clear()
         brandField.clear()
         stockField.value = 0

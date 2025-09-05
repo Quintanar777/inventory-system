@@ -16,6 +16,9 @@ data class Product(
     @Column(nullable = false, precision = 10, scale = 2)
     val price: BigDecimal,
     
+    @Column(name = "wholesale_price", nullable = false, precision = 10, scale = 2)
+    val wholesalePrice: BigDecimal,
+    
     @Column(nullable = false)
     val category: String,
     
