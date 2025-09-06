@@ -30,6 +30,12 @@ extra["vaadinVersion"] = "24.8.6"
 vaadin {
     productionMode = project.hasProperty("production") || project.hasProperty("vaadin.productionMode")
     pnpmEnable = true
+    // Configuración adicional para Railway
+    if (project.hasProperty("production")) {
+        optimizeBundle = true
+        runNpmInstall = true
+        forceProductionBuild = true
+    }
 }
 
 dependencies {
