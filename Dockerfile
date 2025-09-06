@@ -31,5 +31,5 @@ COPY --from=build /app/build/libs/inventory-system.jar app.jar
 # Expose port (Railway will override with $PORT)
 EXPOSE 8080
 
-# Run with minimal memory for Railway (Railway free tier has limited resources)
-CMD ["java", "-Dspring.profiles.active=prod", "-Xms64m", "-Xmx256m", "-XX:+UseSerialGC", "-XX:+UseContainerSupport", "-Djava.security.egd=file:/dev/./urandom", "-XX:+PrintGCDetails", "-jar", "app.jar"]
+# Run with optimized memory for Railway Hobby Plan (512MB available)
+CMD ["java", "-Dspring.profiles.active=prod", "-Xms128m", "-Xmx400m", "-XX:+UseG1GC", "-XX:+UseContainerSupport", "-Djava.security.egd=file:/dev/./urandom", "-XX:MaxMetaspaceSize=128m", "-jar", "app.jar"]
