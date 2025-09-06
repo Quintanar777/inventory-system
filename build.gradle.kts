@@ -15,12 +15,14 @@ description = "Demo project for Spring Boot"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
 repositories {
     mavenCentral()
 }
+
 
 extra["vaadinVersion"] = "24.8.6"
 
