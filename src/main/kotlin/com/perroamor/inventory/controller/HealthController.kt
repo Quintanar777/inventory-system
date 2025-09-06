@@ -15,11 +15,4 @@ class HealthController {
         ))
     }
 
-    @GetMapping("/")
-    fun root(): ResponseEntity<Map<String, String>> {
-        return ResponseEntity.ok(mapOf(
-            "message" to "Inventory System is running",
-            "status" to "UP"
-        ))
-    }
 }

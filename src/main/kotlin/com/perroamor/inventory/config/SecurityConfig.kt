@@ -25,7 +25,9 @@ class SecurityConfig : VaadinWebSecurity() {
                     "/images/**",
                     "/icons/**",
                     "/favicon.ico",
-                    "/h2-console/**"
+                    "/h2-console/**",
+                    "/health",
+                    "/actuator/health"
                 ).permitAll()
         }
         
