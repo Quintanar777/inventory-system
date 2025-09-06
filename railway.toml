@@ -1,11 +1,5 @@
 [build]
-builder = "NIXPACKS"
-
-[build.args]
-JAVA_VERSION = "21"
-JAVA_DISTRO = "temurin"  # Eclipse Temurin (Adoptium)
-BUILD_COMMAND = "./gradlew clean bootJar -Pproduction -x test -x check --no-daemon --refresh-dependencies"
-START_COMMAND = "java -Dspring.profiles.active=prod -jar build/libs/inventory-system.jar"
+builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "java -Dspring.profiles.active=prod -jar build/libs/inventory-system.jar"
+startCommand = "java -Dspring.profiles.active=prod -jar app.jar"
