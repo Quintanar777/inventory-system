@@ -8,6 +8,7 @@ plugins {
 }
 
 group = "com.perroamor"
+
 version = "0.0.1-SNAPSHOT"
 description = "Demo project for Spring Boot"
 
@@ -81,7 +82,7 @@ tasks.withType<org.springframework.boot.gradle.tasks.bundling.BootJar> {
     manifest {
         attributes(
             "Main-Class" to "org.springframework.boot.loader.launch.JarLauncher",
-            "Start-Class" to "${project.group}.${project.name}.ApplicationKt"
+            "Start-Class" to "${project.group}.inventory.InventorySystemApplicationKt"
         )
     }
 }
