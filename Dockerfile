@@ -31,5 +31,5 @@ COPY --from=build /app/build/libs/inventory-system.jar app.jar
 # Expose port (Railway will override with $PORT)
 EXPOSE 8080
 
-# Run with production profile and Railway optimizations
-CMD ["java", "-Dspring.profiles.active=prod", "-Xms256m", "-Xmx1024m", "-XX:+UseG1GC", "-XX:+UseContainerSupport", "-jar", "app.jar"]
+# Run with production profile and Railway optimizations (reduced memory)
+CMD ["java", "-Dspring.profiles.active=prod", "-Xms128m", "-Xmx512m", "-XX:+UseG1GC", "-XX:+UseContainerSupport", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
