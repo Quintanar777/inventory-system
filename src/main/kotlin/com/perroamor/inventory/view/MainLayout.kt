@@ -52,22 +52,24 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         val leftSection = HorizontalLayout(toggle)
         leftSection.addClassNames(
             LumoUtility.AlignItems.CENTER,
-            LumoUtility.Flex.GROW,
             LumoUtility.JustifyContent.START
         )
+        leftSection.setFlexGrow(0.0)
+        leftSection.width = "auto"
         
         val centerSection = HorizontalLayout(viewTitle)
         centerSection.addClassNames(
             LumoUtility.AlignItems.CENTER,
-            LumoUtility.Flex.GROW,
             LumoUtility.JustifyContent.CENTER
         )
+        centerSection.setFlexGrow(1.0)
         
         userSection.addClassNames(
             LumoUtility.AlignItems.CENTER,
-            LumoUtility.Flex.GROW,
             LumoUtility.JustifyContent.END
         )
+        userSection.setFlexGrow(0.0)
+        userSection.width = "auto"
         
         header.add(leftSection, centerSection, userSection)
 
