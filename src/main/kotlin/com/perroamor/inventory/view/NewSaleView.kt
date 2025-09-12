@@ -57,6 +57,7 @@ class NewSaleView(
     )
     
     private var selectedEventId: Long? = null
+    private var lastWholesaleMode: Boolean = false
     
     init {
         setSizeFull()
@@ -198,7 +199,13 @@ class NewSaleView(
             openMobileSearch(isWholesale = true)
         }
         
-        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu)
+        val addMoreButton = Button("Agregar Más", Icon(VaadinIcon.CART)) {
+            addMoreProducts()
+        }
+        addMoreButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        addMoreButton.element.style.set("margin-left", "8px")
+        
+        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu, addMoreButton)
         buttonsLayout.isSpacing = true
         
         headerLayout.add(buttonsLayout)
@@ -261,6 +268,9 @@ class NewSaleView(
             return
         }
         
+        // Recordar la última configuración usada
+        lastWholesaleMode = isWholesale
+        
         val modeText = if (isWholesale) "mayoreo" else "menudeo"
         Notification.show("Búsqueda iniciada en modo $modeText", 2000, Notification.Position.TOP_CENTER)
         
@@ -269,6 +279,31 @@ class NewSaleView(
             val saleItemData = SaleItemDialog.SaleItemData(
                 product = selectionData.product,
                 variant = null, // Por ahora sin variantes
+                quantity = selectionData.quantity,
+                unitPrice = selectionData.unitPrice,
+                personalization = null
+            )
+            
+            saleItems.add(saleItemData)
+            updateItemsGrid()
+            updateTotal()
+        }
+    }
+    
+    private fun addMoreProducts() {
+        if (selectedEventId == null) {
+            Notification.show("Selecciona un evento primero", 3000, Notification.Position.TOP_CENTER)
+            return
+        }
+        
+        val modeText = if (lastWholesaleMode) "mayoreo" else "menudeo"
+        Notification.show("Agregando más productos en modo $modeText", 2000, Notification.Position.TOP_CENTER)
+        
+        productSearchMobile.show(lastWholesaleMode) { selectionData ->
+            // Crear un SaleItemData con los valores seleccionados
+            val saleItemData = SaleItemDialog.SaleItemData(
+                product = selectionData.product,
+                variant = null,
                 quantity = selectionData.quantity,
                 unitPrice = selectionData.unitPrice,
                 personalization = null

@@ -19,7 +19,6 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
 import com.vaadin.flow.component.textfield.NumberField
-import com.vaadin.flow.component.grid.Grid
 import java.math.BigDecimal
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -35,13 +34,13 @@ class ProductSearchMobile(
     private lateinit var brandButtonsLayout: HorizontalLayout
     private lateinit var productsGridArea: Div
     private lateinit var selectedBrandLabel: Span
-    private lateinit var selectedProductsTable: Grid<ProductSelectionData>
-    private lateinit var selectedProductsArea: Div
+    private lateinit var addToSaleButton: Button
     
     private var brands = listOf<Brand>()
     private var currentSelectedBrand: Brand? = null
     private var isWholesaleMode: Boolean = false
     private val selectedProducts = mutableMapOf<Long, ProductSelectionData>()
+    private val productCounterElements = mutableMapOf<Long, Span>()
     data class ProductSelectionData(
         val product: Product,
         val quantity: Int,
@@ -54,6 +53,11 @@ class ProductSearchMobile(
         this.onProductSelectCallback = onProductSelect
         this.isWholesaleMode = isWholesaleMode
         selectedProducts.clear()
+        productCounterElements.clear()
+        
+        // Resetear estado inicial
+        currentSelectedBrand = null
+        
         loadBrands() // Cargar marcas desde la base de datos
         createDialog()
         setupComponents()
@@ -94,15 +98,15 @@ class ProductSearchMobile(
         productsGridArea.element.style.set("overflow", "auto")
         productsGridArea.element.style.set("flex", "1")
         
-        // Área de productos seleccionados
-        selectedProductsArea = createSelectedProductsArea()
+        // Botón flotante "Agregar a Venta" (inicialmente oculto)
+        addToSaleButton = createFloatingAddToSaleButton()
         
         contentArea.add(
             headerLayout,
             brandButtonsLayout,
             selectedBrandLabel,
             productsGridArea,
-            selectedProductsArea
+            addToSaleButton
         )
         
         // Configurar flex grow
@@ -110,7 +114,7 @@ class ProductSearchMobile(
         contentArea.setFlexGrow(0.0, brandButtonsLayout)
         contentArea.setFlexGrow(0.0, selectedBrandLabel)
         contentArea.setFlexGrow(1.0, productsGridArea)
-        contentArea.setFlexGrow(0.0, selectedProductsArea)
+        contentArea.setFlexGrow(0.0, addToSaleButton)
         
         dialog.add(contentArea)
     }
@@ -220,6 +224,9 @@ class ProductSearchMobile(
         // Limpiar área de productos
         productsGridArea.removeAll()
         
+        // NO limpiar todos los contadores, solo los de la marca anterior
+        // Los contadores se recrearán automáticamente al crear las tarjetas
+        
         // Obtener productos de la marca seleccionada
         val products = productService.findByBrand(brand.name)
         
@@ -237,6 +244,13 @@ class ProductSearchMobile(
         // Crear grid de productos
         val gridContainer = createProductsGrid(products)
         productsGridArea.add(gridContainer)
+        
+        // Actualizar contadores para productos ya seleccionados de esta marca
+        products.forEach { product ->
+            if (selectedProducts.containsKey(product.id)) {
+                updateProductCardCounter(product)
+            }
+        }
     }
     
     private fun createProductsGrid(products: List<Product>): Div {
@@ -340,7 +354,31 @@ class ProductSearchMobile(
         priceStockInfo.isPadding = false
         priceStockInfo.add(priceContainer, stockIndicator)
         
-        card.add(productInfo, priceStockInfo)
+        // Contador de productos seleccionados (inicialmente oculto)
+        val counterBadge = Span("")
+        counterBadge.element.style.set("position", "absolute")
+        counterBadge.element.style.set("top", "8px")
+        counterBadge.element.style.set("right", "8px")
+        counterBadge.element.style.set("background", "var(--lumo-error-color)")
+        counterBadge.element.style.set("color", "white")
+        counterBadge.element.style.set("border-radius", "50%")
+        counterBadge.element.style.set("width", "24px")
+        counterBadge.element.style.set("height", "24px")
+        counterBadge.element.style.set("display", "flex")
+        counterBadge.element.style.set("align-items", "center")
+        counterBadge.element.style.set("justify-content", "center")
+        counterBadge.element.style.set("font-weight", "bold")
+        counterBadge.element.style.set("font-size", "0.9em")
+        counterBadge.element.style.set("box-shadow", "0 2px 4px rgba(0,0,0,0.3)")
+        counterBadge.isVisible = false
+        
+        // Agregar al mapa de contadores (reemplazar si ya existe)
+        productCounterElements[product.id] = counterBadge
+        
+        // Hacer la tarjeta posicionable para el badge absoluto
+        card.element.style.set("position", "relative")
+        
+        card.add(productInfo, priceStockInfo, counterBadge)
         
         // Efectos hover
         card.element.addEventListener("mouseover") { _ ->
@@ -406,6 +444,12 @@ class ProductSearchMobile(
         
         updateSelectedProductsTable()
         
+        // Actualizar contador en la tarjeta del producto
+        updateProductCardCounter(product)
+        
+        // Mostrar botón flotante si hay productos seleccionados
+        updateFloatingButtonVisibility()
+        
         Notification.show(
             "Producto agregado: ${product.name}",
             2000,
@@ -438,48 +482,57 @@ class ProductSearchMobile(
         productsGridArea.add(instructionDiv)
     }
     
-    private fun createSelectedProductsArea(): Div {
-        val area = Div()
-        area.setWidthFull()
-        area.element.style.set("max-height", "200px")
-        area.element.style.set("background", "var(--lumo-contrast-5pct)")
-        area.element.style.set("border-radius", "8px")
-        area.element.style.set("padding", "16px")
-        area.element.style.set("margin-top", "16px")
-        
-        val headerLayout = HorizontalLayout()
-        headerLayout.setWidthFull()
-        headerLayout.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
-        headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
-        
-        val title = Span("Productos Seleccionados")
-        title.element.style.set("font-weight", "bold")
-        title.element.style.set("font-size", "1.1em")
-        
-        val confirmButton = Button("Agregar a Venta", Icon(VaadinIcon.CHECK)) {
+    
+    private fun createFloatingAddToSaleButton(): Button {
+        val button = Button("Agregar a Venta", Icon(VaadinIcon.CART)) {
             confirmSelectedProducts()
         }
-        confirmButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
-        confirmButton.element.style.set("margin-left", "auto")
         
-        headerLayout.add(title, confirmButton)
+        button.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
+        button.element.style.set("position", "sticky")
+        button.element.style.set("bottom", "16px")
+        button.element.style.set("align-self", "center")
+        button.element.style.set("z-index", "1000")
+        button.element.style.set("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+        button.element.style.set("font-size", "1.2em")
+        button.element.style.set("font-weight", "bold")
+        button.element.style.set("padding", "12px 24px")
+        button.element.style.set("margin", "16px 0")
         
-        selectedProductsTable = Grid(ProductSelectionData::class.java, false)
-        selectedProductsTable.setWidthFull()
-        selectedProductsTable.element.style.set("max-height", "120px")
+        button.isVisible = false
         
-        selectedProductsTable.addColumn { it.product.name }.setHeader("Producto").setFlexGrow(3)
-        selectedProductsTable.addColumn { it.quantity }.setHeader("Cant.").setFlexGrow(1)
-        selectedProductsTable.addColumn { "$${it.unitPrice}" }.setHeader("Precio").setFlexGrow(1)
-        selectedProductsTable.addColumn { "$${it.unitPrice.multiply(java.math.BigDecimal(it.quantity))}" }.setHeader("Total").setFlexGrow(1)
-        
-        area.add(headerLayout, selectedProductsTable)
-        return area
+        return button
     }
     
     private fun updateSelectedProductsTable() {
-        selectedProductsTable.setItems(selectedProducts.values)
+        // Ya no hay tabla que actualizar - solo mantenemos la función por compatibilidad
+        // La lógica se maneja directamente en el NewSaleView
     }
+    
+    private fun updateProductCardCounter(product: Product) {
+        val counterElement = productCounterElements[product.id]
+        val selectedProduct = selectedProducts[product.id]
+        
+        if (counterElement != null) {
+            if (selectedProduct != null && selectedProduct.quantity > 0) {
+                counterElement.text = selectedProduct.quantity.toString()
+                counterElement.isVisible = true
+            } else {
+                counterElement.isVisible = false
+            }
+        }
+    }
+    
+    private fun updateFloatingButtonVisibility() {
+        addToSaleButton.isVisible = selectedProducts.isNotEmpty()
+        
+        // Actualizar el texto del botón con la cantidad
+        if (selectedProducts.isNotEmpty()) {
+            val totalQuantity = selectedProducts.values.sumOf { it.quantity }
+            addToSaleButton.text = "Agregar a Venta ($totalQuantity)"
+        }
+    }
+    
     
     private fun confirmSelectedProducts() {
         if (selectedProducts.isEmpty()) {
@@ -496,6 +549,7 @@ class ProductSearchMobile(
             onProductSelectCallback?.invoke(productData)
         }
         
+        // Cerrar el diálogo directamente
         dialog.close()
         
         Notification.show(
@@ -504,6 +558,7 @@ class ProductSearchMobile(
             Notification.Position.TOP_CENTER
         )
     }
+    
     
     private fun loadBrands() {
         brands = brandService.findActive()
