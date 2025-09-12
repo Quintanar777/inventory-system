@@ -45,19 +45,31 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
             LumoUtility.Display.FLEX,
-            LumoUtility.JustifyContent.BETWEEN,
             LumoUtility.Padding.Horizontal.MEDIUM,
             LumoUtility.Width.FULL
         )
         
         val leftSection = HorizontalLayout(toggle)
-        leftSection.addClassNames(LumoUtility.AlignItems.CENTER)
+        leftSection.addClassNames(
+            LumoUtility.AlignItems.CENTER,
+            LumoUtility.Flex.GROW,
+            LumoUtility.JustifyContent.START
+        )
         
-        viewTitle.addClassNames(LumoUtility.Flex.GROW)
+        val centerSection = HorizontalLayout(viewTitle)
+        centerSection.addClassNames(
+            LumoUtility.AlignItems.CENTER,
+            LumoUtility.Flex.GROW,
+            LumoUtility.JustifyContent.CENTER
+        )
         
-        userSection.addClassNames(LumoUtility.AlignItems.CENTER)
+        userSection.addClassNames(
+            LumoUtility.AlignItems.CENTER,
+            LumoUtility.Flex.GROW,
+            LumoUtility.JustifyContent.END
+        )
         
-        header.add(leftSection, viewTitle, userSection)
+        header.add(leftSection, centerSection, userSection)
 
         addToNavbar(false, header)
     }
