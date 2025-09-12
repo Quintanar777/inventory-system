@@ -74,7 +74,7 @@ class ProductView(
         // Configurar anchos de columnas
         grid.getColumnByKey("id").setWidth("80px").setFlexGrow(0).setHeader("ID")
         grid.getColumnByKey("name").setHeader("Nombre").setFlexGrow(2)
-        grid.getColumnByKey("brand").setHeader("Marca").setFlexGrow(1)
+        grid.getColumnByKey("brand").setHeader("Marca").setWidth("120px").setFlexGrow(1)
         grid.getColumnByKey("price").setHeader("Precio Regular").setWidth("130px").setFlexGrow(0)
         grid.getColumnByKey("wholesalePrice").setHeader("Precio Mayoreo").setWidth("130px").setFlexGrow(0)
         grid.getColumnByKey("category").setHeader("Categoría").setFlexGrow(1)

@@ -24,6 +24,8 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.contextmenu.MenuItem
 import com.vaadin.flow.component.menubar.MenuBar
+import com.vaadin.flow.component.dialog.Dialog
+import com.vaadin.flow.component.formlayout.FormLayout
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
@@ -58,6 +60,11 @@ class NewSaleView(
     
     private var selectedEventId: Long? = null
     private var lastWholesaleMode: Boolean = false
+    
+    // Customer information fields
+    private var customerName: String? = null
+    private var customerPhone: String? = null
+    private var customerInfoLabel: Span? = null
     
     init {
         setSizeFull()
@@ -212,8 +219,97 @@ class NewSaleView(
         headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
         headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER, buttonsLayout)
         
-        layout.add(headerLayout, itemsGrid)
+        layout.add(headerLayout, itemsGrid, createCustomerInfoSection())
         return layout
+    }
+    
+    private fun createCustomerInfoSection(): HorizontalLayout {
+        val layout = HorizontalLayout()
+        layout.setWidthFull()
+        layout.setJustifyContentMode(FlexComponent.JustifyContentMode.START)
+        layout.setAlignItems(FlexComponent.Alignment.CENTER)
+        layout.element.style.set("margin-top", "8px")
+        
+        val customerButton = Button("👤 Información del Cliente", Icon(VaadinIcon.USER)) {
+            showCustomerDialog()
+        }
+        customerButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        
+        customerInfoLabel = Span()
+        updateCustomerInfoLabel(customerInfoLabel!!)
+        customerInfoLabel!!.element.style.set("margin-left", "16px")
+        customerInfoLabel!!.element.style.set("color", "var(--lumo-secondary-text-color)")
+        
+        layout.add(customerButton, customerInfoLabel)
+        
+        return layout
+    }
+    
+    private fun showCustomerDialog() {
+        val dialog = Dialog()
+        dialog.headerTitle = "Información del Cliente"
+        
+        val formLayout = FormLayout()
+        
+        val nameField = TextField("Nombre del Cliente")
+        nameField.value = customerName ?: ""
+        nameField.placeholder = "Nombre completo (opcional)"
+        nameField.setWidthFull()
+        
+        val phoneField = TextField("Teléfono")
+        phoneField.value = customerPhone ?: ""
+        phoneField.placeholder = "Número de teléfono (opcional)"
+        phoneField.setWidthFull()
+        
+        formLayout.add(nameField, phoneField)
+        formLayout.setResponsiveSteps(FormLayout.ResponsiveStep("0", 1))
+        
+        val saveButton = Button("Guardar") {
+            customerName = if (nameField.value.isBlank()) null else nameField.value
+            customerPhone = if (phoneField.value.isBlank()) null else phoneField.value
+            
+            customerInfoLabel?.let { updateCustomerInfoLabel(it) }
+            
+            Notification.show(
+                "Información del cliente actualizada",
+                2000,
+                Notification.Position.TOP_CENTER
+            )
+            
+            dialog.close()
+        }
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+        
+        val clearButton = Button("Limpiar") {
+            nameField.clear()
+            phoneField.clear()
+        }
+        clearButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        
+        val cancelButton = Button("Cancelar") {
+            dialog.close()
+        }
+        
+        val buttonLayout = HorizontalLayout(clearButton, cancelButton, saveButton)
+        buttonLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
+        
+        val content = VerticalLayout(formLayout, buttonLayout)
+        content.isSpacing = true
+        content.setWidth("400px")
+        
+        dialog.add(content)
+        dialog.open()
+    }
+    
+    private fun updateCustomerInfoLabel(label: Span) {
+        if (customerName != null || customerPhone != null) {
+            val parts = mutableListOf<String>()
+            customerName?.let { parts.add(it) }
+            customerPhone?.let { parts.add(it) }
+            label.text = "Cliente: ${parts.joinToString(" - ")}"
+        } else {
+            label.text = "Sin información del cliente"
+        }
     }
     
     private fun createTotalSection(): HorizontalLayout {
@@ -338,6 +434,9 @@ class NewSaleView(
     
     private fun clearSale() {
         saleItems.clear()
+        customerName = null
+        customerPhone = null
+        customerInfoLabel?.let { updateCustomerInfoLabel(it) }
         updateItemsGrid()
         updateTotal()
         
@@ -352,8 +451,8 @@ class NewSaleView(
             val sale = Sale(
                 event = event,
                 saleDate = saleDateField.value,
-                customerName = null,
-                customerPhone = null,
+                customerName = customerName,
+                customerPhone = customerPhone,
                 paymentMethod = paymentMethodField.value,
                 totalAmount = saleItems.sumOf { it.getTotalPrice() }
             )

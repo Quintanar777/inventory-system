@@ -8,6 +8,7 @@ import com.perroamor.inventory.service.EventService
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog
 import com.vaadin.flow.component.grid.Grid
 import com.vaadin.flow.component.grid.GridVariant
 import com.vaadin.flow.component.html.H2
@@ -57,6 +58,12 @@ class SaleView(
     
     private fun setupEventSelector() {
         eventSelector.setItemLabelGenerator { "${it.name} (${it.location})" }
+        eventSelector.setWidthFull()
+        eventSelector.element.style.set("font-size", "1.1em")
+        eventSelector.element.style.set("min-height", "45px")
+        eventSelector.element.style.set("padding-top", "8px")
+        eventSelector.element.style.set("margin-bottom", "16px")
+        
         eventSelector.addValueChangeListener { event ->
             event.value?.let { selectedEvent ->
                 selectedEventId = selectedEvent.id
@@ -75,18 +82,22 @@ class SaleView(
         grid.addColumn(Sale::id).setHeader("ID").setWidth("60px").setFlexGrow(0)
         
         grid.addColumn { sale ->
-            sale.saleDate.toLocalDate().toString()
-        }.setHeader("Fecha").setWidth("110px").setFlexGrow(0)
-        
-        grid.addColumn { sale ->
-            sale.saleDate.toLocalTime().toString()
-        }.setHeader("Hora").setWidth("85px").setFlexGrow(0)
+            "${sale.saleDate.toLocalDate()} ${sale.saleDate.toLocalTime().toString().substring(0,5)}"
+        }.setHeader("Fecha y Hora").setWidth("200px").setFlexGrow(0)
         
         grid.addColumn { sale ->
             "$${sale.totalAmount}"
         }.setHeader("Total").setWidth("100px").setFlexGrow(0)
         
-        grid.addColumn(Sale::paymentMethod).setHeader("Pago").setFlexGrow(1)
+        grid.addColumn(Sale::paymentMethod).setHeader("Pago").setWidth("200px").setFlexGrow(0)
+        
+        grid.addColumn { sale ->
+            when {
+                sale.customerName != null -> sale.customerName!!
+                sale.customerPhone != null -> sale.customerPhone!!
+                else -> "Sin datos"
+            }
+        }.setHeader("Cliente").setWidth("250px").setFlexGrow(0)
         
         grid.addColumn { sale ->
             when {
@@ -94,7 +105,7 @@ class SaleView(
                 sale.isPaid -> "✅ Pagada"
                 else -> "⏳ Pendiente"
             }
-        }.setHeader("Estado").setFlexGrow(1)
+        }.setHeader("Estado").setWidth("120px").setFlexGrow(0)
         
         // Columna de acciones
         grid.addComponentColumn { sale ->
@@ -113,6 +124,14 @@ class SaleView(
                     addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY)
                 }
                 buttonsLayout.add(editButton)
+                
+                val deleteButton = Button(Icon(VaadinIcon.TRASH)) {
+                    confirmDeleteSale(sale)
+                }.apply {
+                    addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR)
+                    element.setAttribute("title", "Eliminar Venta")
+                }
+                buttonsLayout.add(deleteButton)
             }
             
             buttonsLayout.add(detailsButton)
@@ -388,6 +407,41 @@ class SaleView(
             Notification.show(
                 "✅ Evento en curso seleccionado: ${currentEvent.name}",
                 3000,
+                Notification.Position.TOP_CENTER
+            )
+        }
+    }
+    
+    private fun confirmDeleteSale(sale: Sale) {
+        val confirmDialog = ConfirmDialog(
+            "Confirmar Eliminación",
+            "¿Estás seguro de que deseas eliminar la venta #${sale.id}? Esta acción no se puede deshacer.",
+            "Sí, Eliminar",
+            { deleteSale(sale) },
+            "Cancelar",
+            { /* No hacer nada al cancelar */ }
+        )
+        
+        confirmDialog.setConfirmButtonTheme("error primary")
+        confirmDialog.open()
+    }
+    
+    private fun deleteSale(sale: Sale) {
+        try {
+            saleService.delete(sale.id)
+            
+            // Actualizar la grid después de eliminar
+            eventSelector.value?.let { updateSalesGrid(it) }
+            
+            Notification.show(
+                "Venta #${sale.id} eliminada correctamente",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+        } catch (e: Exception) {
+            Notification.show(
+                "Error al eliminar la venta: ${e.message}",
+                5000,
                 Notification.Position.TOP_CENTER
             )
         }

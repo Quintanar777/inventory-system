@@ -41,7 +41,7 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         // User info and logout section
         val userSection = createUserSection()
 
-        val header = Header(toggle, viewTitle, userSection)
+        val header = Header()
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
             LumoUtility.Display.FLEX,
@@ -49,6 +49,15 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
             LumoUtility.Padding.Horizontal.MEDIUM,
             LumoUtility.Width.FULL
         )
+        
+        val leftSection = HorizontalLayout(toggle)
+        leftSection.addClassNames(LumoUtility.AlignItems.CENTER)
+        
+        viewTitle.addClassNames(LumoUtility.Flex.GROW)
+        
+        userSection.addClassNames(LumoUtility.AlignItems.CENTER)
+        
+        header.add(leftSection, viewTitle, userSection)
 
         addToNavbar(false, header)
     }
