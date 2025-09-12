@@ -179,12 +179,17 @@ class ProductSearchMobile(
         when (brand.name) {
             "Perro Amor" -> {
                 button.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-                button.element.style.set("background", "linear-gradient(135deg, #ff6b6b, #ee5a24)")
+                button.element.style.set("background", "linear-gradient(135deg, #e87ba7, #d15287)")
                 button.element.style.set("color", "white")
             }
             "Perra Madre" -> {
                 button.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
-                button.element.style.set("background", "linear-gradient(135deg, #5f27cd, #341f97)")
+                button.element.style.set("background", "linear-gradient(135deg, #e8e320, #b6b119)")
+                button.element.style.set("color", "white")
+            }
+            "Pashminas" -> {
+                button.addThemeVariants(ButtonVariant.LUMO_CONTRAST)
+                button.element.style.set("background", "linear-gradient(135deg, #ff9f43, #ee5a24)")
                 button.element.style.set("color", "white")
             }
             else -> {
@@ -561,7 +566,7 @@ class ProductSearchMobile(
     
     
     private fun loadBrands() {
-        brands = brandService.findActive()
+        brands = brandService.findActive().sortedByDescending { it.id }
         
         // Inicializar marcas por defecto si no hay ninguna
         if (brands.isEmpty()) {

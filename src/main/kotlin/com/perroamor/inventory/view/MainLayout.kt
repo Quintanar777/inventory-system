@@ -10,6 +10,7 @@ import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
+import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.orderedlayout.Scroller
 import com.vaadin.flow.component.sidenav.SideNav
 import com.vaadin.flow.component.sidenav.SideNavItem
@@ -38,9 +39,6 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         viewTitle = H1()
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE)
 
-        // User info and logout section
-        val userSection = createUserSection()
-
         val header = Header()
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
@@ -64,37 +62,11 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         )
         centerSection.setFlexGrow(1.0)
         
-        userSection.addClassNames(
-            LumoUtility.AlignItems.CENTER,
-            LumoUtility.JustifyContent.END
-        )
-        userSection.setFlexGrow(0.0)
-        userSection.width = "auto"
-        
-        header.add(leftSection, centerSection, userSection)
+        header.add(leftSection, centerSection)
 
         addToNavbar(false, header)
     }
 
-    private fun createUserSection(): HorizontalLayout {
-        val userSection = HorizontalLayout()
-        userSection.addClassNames(LumoUtility.AlignItems.CENTER)
-
-        if (securityService.isAuthenticated()) {
-            val currentUser = securityService.getAuthenticatedUser()
-            val userName = Span("👤 ${currentUser?.fullName ?: securityService.getCurrentUsername() ?: "Usuario"}")
-            userName.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY)
-
-            val logoutButton = Button("Cerrar Sesión", Icon(VaadinIcon.SIGN_OUT)) {
-                securityService.logout()
-            }
-            logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
-
-            userSection.add(userName, logoutButton)
-        }
-
-        return userSection
-    }
 
     private fun addDrawerContent() {
         val appName = Span("🐕 Perro Amor")
@@ -107,9 +79,61 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         )
         header.style.set("padding", "var(--lumo-space-m)")
 
+        // Información del usuario al inicio del menú
+        val userInfo = createUserInfoSection()
+
         val scroller = Scroller(createNavigation())
 
-        addToDrawer(header, scroller)
+        // Botón de cerrar sesión al final del menú
+        val logoutSection = createLogoutSection()
+
+        addToDrawer(header, userInfo, scroller, logoutSection)
+    }
+
+    private fun createUserInfoSection(): VerticalLayout {
+        val userInfoLayout = VerticalLayout()
+        userInfoLayout.isSpacing = false
+        userInfoLayout.isPadding = false
+        userInfoLayout.style.set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
+        userInfoLayout.style.set("border-bottom", "1px solid var(--lumo-contrast-10pct)")
+        userInfoLayout.style.set("margin-bottom", "var(--lumo-space-s)")
+
+        if (securityService.isAuthenticated()) {
+            val currentUser = securityService.getAuthenticatedUser()
+            val userName = Span("👤 ${currentUser?.fullName ?: securityService.getCurrentUsername() ?: "Usuario"}")
+            userName.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.FontWeight.MEDIUM)
+            userName.style.set("color", "var(--lumo-primary-text-color)")
+            
+            val userRole = if (securityService.isAdmin()) "Administrador" else "Usuario"
+            val roleLabel = Span(userRole)
+            roleLabel.addClassNames(LumoUtility.FontSize.XSMALL)
+            roleLabel.style.set("color", "var(--lumo-secondary-text-color)")
+            
+            userInfoLayout.add(userName, roleLabel)
+        }
+
+        return userInfoLayout
+    }
+
+    private fun createLogoutSection(): VerticalLayout {
+        val logoutLayout = VerticalLayout()
+        logoutLayout.isSpacing = false
+        logoutLayout.isPadding = false
+        logoutLayout.style.set("padding", "var(--lumo-space-m)")
+        logoutLayout.style.set("border-top", "1px solid var(--lumo-contrast-10pct)")
+
+        if (securityService.isAuthenticated()) {
+            val logoutButton = Button("Cerrar Sesión", Icon(VaadinIcon.SIGN_OUT)) {
+                securityService.logout()
+            }
+            logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
+            logoutButton.style.set("width", "100%")
+            logoutButton.style.set("justify-content", "flex-start")
+            
+            logoutLayout.add(logoutButton)
+        }
+
+        return logoutLayout
     }
 
     private fun createNavigation(): SideNav {

@@ -54,8 +54,7 @@ class NewSaleView(
     private val saleItems = mutableListOf<SaleItemDialog.SaleItemData>()
     
     private val paymentMethods = listOf(
-        "Efectivo", "Tarjeta de Débito", "Tarjeta de Crédito", 
-        "Transferencia", "PayPal", "Mercado Pago"
+        "Efectivo", "Tarjeta", "Transferencia", "PayPal", "Mercado Pago"
     )
     
     private var selectedEventId: Long? = null
