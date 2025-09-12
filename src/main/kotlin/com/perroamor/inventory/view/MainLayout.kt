@@ -45,9 +45,9 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
             LumoUtility.Display.FLEX,
-            LumoUtility.Padding.Horizontal.MEDIUM,
             LumoUtility.Width.FULL
         )
+        header.style.set("padding", "0 var(--lumo-space-m)")
         
         val leftSection = HorizontalLayout(toggle)
         leftSection.addClassNames(
@@ -103,10 +103,9 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         val header = Header(appName)
         header.addClassNames(
             LumoUtility.AlignItems.CENTER,
-            LumoUtility.Display.FLEX,
-            LumoUtility.Padding.Horizontal.MEDIUM,
-            LumoUtility.Padding.Vertical.MEDIUM
+            LumoUtility.Display.FLEX
         )
+        header.style.set("padding", "var(--lumo-space-m)")
 
         val scroller = Scroller(createNavigation())
 

@@ -4,6 +4,7 @@ import com.perroamor.inventory.entity.Product
 import com.perroamor.inventory.entity.Brand
 import com.perroamor.inventory.service.ProductService
 import com.perroamor.inventory.service.BrandService
+import com.perroamor.inventory.security.SecurityService
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
@@ -31,7 +32,8 @@ import java.math.BigDecimal
 @RolesAllowed("ADMIN", "MANAGER")
 class ProductView(
     private val productService: ProductService,
-    private val brandService: BrandService
+    private val brandService: BrandService,
+    @Autowired private val securityService: SecurityService
 ) : VerticalLayout() {
 
     private val grid = Grid(Product::class.java)
@@ -42,6 +44,9 @@ class ProductView(
     private val brandField = ComboBox<Brand>("Marca")
     private val stockField = IntegerField("Stock")
     private val descriptionField = TextField("Descripción")
+    
+    // Filtros
+    private val brandFilterField = ComboBox<Brand>("Filtrar por Marca")
 
     private val categories = mutableListOf(
         "Collares",
@@ -58,9 +63,11 @@ class ProductView(
         setSizeFull()
         configureGrid()
         configureForm()
+        configureFilters()
 
         add(
             createToolbar(),
+            createFilterBar(),
             grid
         )
 
@@ -81,32 +88,54 @@ class ProductView(
         grid.getColumnByKey("stock").setHeader("Stock").setWidth("100px").setFlexGrow(0)
 
         grid.addColumn { product ->
-            if (product.hasVariants) "🔀 Sí" else "➖ No"
-        }.setHeader("Tiene Variantes").setWidth("140px").setFlexGrow(0)
-
-        grid.addColumn { product ->
             if (product.stock <= 5) "⚠️ BAJO" else "✅ OK"
         }.setHeader("Estado Stock").setWidth("130px").setFlexGrow(0)
 
-        // Columna de acción para productos con variantes
+        // Columna de acciones
         grid.addComponentColumn { product ->
-            if (product.hasVariants) {
-                Button("Ver Variantes", Icon(VaadinIcon.SPLIT)) {
+            val layout = HorizontalLayout()
+            
+            val editButton = Button(Icon(VaadinIcon.EDIT)) {
+                editProduct(product)
+            }.apply {
+                addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY)
+                element.setAttribute("title", "Editar producto")
+            }
+            
+            val variantButton = if (product.hasVariants) {
+                Button(Icon(VaadinIcon.SPLIT)) {
                     navigateToVariants(product)
                 }.apply {
                     addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY)
+                    element.setAttribute("title", "Ver variantes")
                 }
             } else {
-                Button("Crear Variantes", Icon(VaadinIcon.PLUS)) {
+                Button(Icon(VaadinIcon.PLUS)) {
                     navigateToVariants(product)
                 }.apply {
                     addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY_INLINE)
+                    element.setAttribute("title", "Crear variantes")
                 }
             }
-        }.setHeader("Variantes").setWidth("160px").setFlexGrow(0)
+            
+            layout.add(editButton, variantButton)
+            
+            // Solo mostrar botón de eliminar para admins
+            if (isAdmin()) {
+                val deleteButton = Button(Icon(VaadinIcon.TRASH)) {
+                    deleteProduct(product)
+                }.apply {
+                    addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR)
+                    element.setAttribute("title", "Eliminar producto")
+                }
+                layout.add(deleteButton)
+            }
+            
+            layout
+        }.setHeader("Acciones").setWidth("180px").setFlexGrow(0)
 
         grid.asSingleSelect().addValueChangeListener { event ->
-            event.value?.let { editProduct(it) }
+            // Removemos el listener automático de edición para evitar conflictos con los botones
         }
     }
 
@@ -248,7 +277,13 @@ class ProductView(
     }
 
     private fun updateList() {
-        grid.setItems(productService.findAll())
+        val allProducts = productService.findAll()
+        val filteredProducts = if (brandFilterField.value != null) {
+            allProducts.filter { it.brand == brandFilterField.value.name }
+        } else {
+            allProducts
+        }
+        grid.setItems(filteredProducts)
     }
     
     private fun updateBrandList() {
@@ -259,5 +294,56 @@ class ProductView(
         if (activeBrands.isNotEmpty()) {
             brandField.value = activeBrands.first()
         }
+    }
+    
+    private fun configureFilters() {
+        val activeBrands = brandService.findActive()
+        brandFilterField.setItems(activeBrands)
+        brandFilterField.setItemLabelGenerator { it.name }
+        brandFilterField.isClearButtonVisible = true
+        brandFilterField.placeholder = "Todas las marcas"
+        
+        brandFilterField.addValueChangeListener { 
+            updateList()
+        }
+    }
+    
+    private fun createFilterBar(): HorizontalLayout {
+        return HorizontalLayout(brandFilterField).apply {
+            defaultVerticalComponentAlignment = com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END
+        }
+    }
+    
+    private fun isAdmin(): Boolean {
+        return securityService.isAdmin()
+    }
+    
+    private fun deleteProduct(product: Product) {
+        val confirmDialog = Dialog()
+        confirmDialog.setHeaderTitle("Confirmar eliminación")
+        
+        val message = VerticalLayout(
+            com.vaadin.flow.component.html.Span("¿Está seguro que desea eliminar el producto \"${product.name}\"?"),
+            com.vaadin.flow.component.html.Span("Esta acción no se puede deshacer.")
+        )
+        
+        val confirmButton = Button("Eliminar") {
+            try {
+                productService.delete(product.id)
+                updateList()
+                Notification.show("Producto eliminado exitosamente", 3000, Notification.Position.TOP_CENTER)
+                confirmDialog.close()
+            } catch (e: Exception) {
+                Notification.show("Error al eliminar producto: ${e.message}", 3000, Notification.Position.TOP_CENTER)
+            }
+        }
+        confirmButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR)
+        
+        val cancelButton = Button("Cancelar") { confirmDialog.close() }
+        
+        val buttonLayout = HorizontalLayout(confirmButton, cancelButton)
+        
+        confirmDialog.add(message, buttonLayout)
+        confirmDialog.open()
     }
 }

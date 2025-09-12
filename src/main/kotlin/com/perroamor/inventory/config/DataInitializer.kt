@@ -36,7 +36,7 @@ class DataInitializer(
         
         // Los productos ya se inicializan via Flyway migrations
         // Solo inicializar si no hay productos (fallback para desarrollo)
-        if (productService.findAll().isEmpty()) {
+        /*if (productService.findAll().isEmpty()) {
             println("⚠️  No se encontraron productos. Flyway debería haberlos creado.")
             println("⚠️  Inicializando productos como fallback...")
             initializeProducts()
@@ -53,7 +53,7 @@ class DataInitializer(
         // Ventas de ejemplo solo para pruebas/desarrollo
         if (saleService.findAll().isEmpty()) {
             initializeSampleSales()
-        }
+        }*/
     }
     
     private fun initializeProducts() {
