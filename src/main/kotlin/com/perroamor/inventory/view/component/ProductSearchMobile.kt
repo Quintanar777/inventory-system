@@ -18,7 +18,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
-import com.vaadin.flow.component.checkbox.Checkbox
+import com.vaadin.flow.component.textfield.NumberField
+import com.vaadin.flow.component.grid.Grid
 import java.math.BigDecimal
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -34,11 +35,13 @@ class ProductSearchMobile(
     private lateinit var brandButtonsLayout: HorizontalLayout
     private lateinit var productsGridArea: Div
     private lateinit var selectedBrandLabel: Span
-    private lateinit var wholesaleModeToggle: Checkbox
+    private lateinit var selectedProductsTable: Grid<ProductSelectionData>
+    private lateinit var selectedProductsArea: Div
     
     private var brands = listOf<Brand>()
     private var currentSelectedBrand: Brand? = null
     private var isWholesaleMode: Boolean = false
+    private val selectedProducts = mutableMapOf<Long, ProductSelectionData>()
     data class ProductSelectionData(
         val product: Product,
         val quantity: Int,
@@ -47,8 +50,10 @@ class ProductSearchMobile(
     
     private var onProductSelectCallback: ((ProductSelectionData) -> Unit)? = null
     
-    fun show(onProductSelect: (ProductSelectionData) -> Unit) {
+    fun show(isWholesaleMode: Boolean = false, onProductSelect: (ProductSelectionData) -> Unit) {
         this.onProductSelectCallback = onProductSelect
+        this.isWholesaleMode = isWholesaleMode
+        selectedProducts.clear()
         loadBrands() // Cargar marcas desde la base de datos
         createDialog()
         setupComponents()
@@ -85,21 +90,27 @@ class ProductSearchMobile(
         
         // Área del grid de productos
         productsGridArea = Div()
-        productsGridArea.setSizeFull()
+        productsGridArea.setWidthFull()
         productsGridArea.element.style.set("overflow", "auto")
+        productsGridArea.element.style.set("flex", "1")
+        
+        // Área de productos seleccionados
+        selectedProductsArea = createSelectedProductsArea()
         
         contentArea.add(
             headerLayout,
             brandButtonsLayout,
             selectedBrandLabel,
-            productsGridArea
+            productsGridArea,
+            selectedProductsArea
         )
         
-        // Configurar flex grow para que el área de productos ocupe el espacio disponible
+        // Configurar flex grow
         contentArea.setFlexGrow(0.0, headerLayout)
         contentArea.setFlexGrow(0.0, brandButtonsLayout)
         contentArea.setFlexGrow(0.0, selectedBrandLabel)
         contentArea.setFlexGrow(1.0, productsGridArea)
+        contentArea.setFlexGrow(0.0, selectedProductsArea)
         
         dialog.add(contentArea)
     }
@@ -115,7 +126,8 @@ class ProductSearchMobile(
         topRow.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
         topRow.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
         
-        val title = H3("🔍 Buscar Productos")
+        val modeText = if (isWholesaleMode) "💰 MAYOREO" else "🛒 MENUDEO"
+        val title = H3("🔍 Buscar Productos - $modeText")
         title.element.style.set("margin", "0")
         
         val closeButton = Button(Icon(VaadinIcon.CLOSE)) {
@@ -126,30 +138,7 @@ class ProductSearchMobile(
         
         topRow.add(title, closeButton)
         
-        // Fila inferior con el toggle de precios mayoreo
-        val bottomRow = HorizontalLayout()
-        bottomRow.setWidthFull()
-        bottomRow.justifyContentMode = FlexComponent.JustifyContentMode.CENTER
-        bottomRow.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
-        bottomRow.element.style.set("padding-top", "10px")
-        
-        wholesaleModeToggle = Checkbox("💰 Precios de Mayoreo")
-        wholesaleModeToggle.value = false
-        wholesaleModeToggle.element.style.set("font-size", "1.1em")
-        wholesaleModeToggle.element.style.set("font-weight", "500")
-        
-        // Listener para cambiar entre modos
-        wholesaleModeToggle.addValueChangeListener { event ->
-            isWholesaleMode = event.value
-            // Refrescar productos si hay una marca seleccionada
-            currentSelectedBrand?.let { brand ->
-                loadProductsForBrand(brand)
-            }
-        }
-        
-        bottomRow.add(wholesaleModeToggle)
-        
-        headerContainer.add(topRow, bottomRow)
+        headerContainer.add(topRow)
         
         return headerContainer
     }
@@ -223,6 +212,7 @@ class ProductSearchMobile(
     private fun selectBrand(brand: Brand) {
         currentSelectedBrand = brand
         selectedBrandLabel.text = "Productos de: ${brand.name}"
+        brandButtonsLayout.isVisible = false
         loadProductsForBrand(brand)
     }
     
@@ -253,9 +243,9 @@ class ProductSearchMobile(
         val gridContainer = Div()
         gridContainer.setWidthFull()
         
-        // Configurar CSS Grid para una cuadrícula responsiva
+        // Configurar CSS Grid para una cuadrícula de 5 columnas
         gridContainer.element.style.set("display", "grid")
-        gridContainer.element.style.set("grid-template-columns", "repeat(auto-fill, minmax(200px, 1fr))")
+        gridContainer.element.style.set("grid-template-columns", "repeat(5, 1fr)")
         gridContainer.element.style.set("gap", "16px")
         gridContainer.element.style.set("padding", "16px")
         
@@ -299,10 +289,16 @@ class ProductSearchMobile(
         
         val currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
         val priceLabel = if (isWholesaleMode) "Mayoreo" else "Regular"
-        val priceSpan = Span("$${currentPrice} (${priceLabel})")
-        priceSpan.element.style.set("font-weight", "bold")
-        priceSpan.element.style.set("font-size", "1.2em")
-        priceSpan.element.style.set("color", "var(--lumo-success-text-color)")
+        
+        val priceField = NumberField()
+        priceField.value = currentPrice.toDouble()
+        priceField.width = "100px"
+        priceField.element.style.set("font-size", "1.1em")
+        priceField.prefixComponent = Span("$")
+        
+        val priceLabelSpan = Span("(${priceLabel})")
+        priceLabelSpan.element.style.set("font-size", "0.9em")
+        priceLabelSpan.element.style.set("color", "var(--lumo-secondary-text-color)")
         
         // Indicador de stock
         val stockIndicator = Span(
@@ -331,11 +327,18 @@ class ProductSearchMobile(
         productInfo.add(productName, categorySpan)
         variantInfo?.let { productInfo.add(it) }
         
+        // Contenedor de precio
+        val priceContainer = HorizontalLayout()
+        priceContainer.isSpacing = false
+        priceContainer.isPadding = false
+        priceContainer.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER, priceField, priceLabelSpan)
+        priceContainer.add(priceField, priceLabelSpan)
+        
         // Contenedor de precio y stock
         val priceStockInfo = VerticalLayout()
         priceStockInfo.isSpacing = false
         priceStockInfo.isPadding = false
-        priceStockInfo.add(priceSpan, stockIndicator)
+        priceStockInfo.add(priceContainer, stockIndicator)
         
         card.add(productInfo, priceStockInfo)
         
@@ -354,163 +357,60 @@ class ProductSearchMobile(
         
         // Click handler
         card.element.addEventListener("click") { _ ->
-            selectProduct(product)
+            addProductToSelection(product, priceField)
         }
         
         return card
     }
     
-    private fun selectProduct(product: Product) {
-        showProductConfirmDialog(product)
-    }
-    
-    private fun showProductConfirmDialog(product: Product) {
-        val confirmDialog = Dialog()
-        confirmDialog.width = "400px"
-        confirmDialog.isCloseOnEsc = true
-        confirmDialog.isCloseOnOutsideClick = false
+    private fun addProductToSelection(product: Product, priceField: NumberField) {
+        val currentPrice = BigDecimal(priceField.value ?: product.price.toDouble())
         
-        val title = H3("Confirmar Producto")
-        title.element.style.set("margin", "0 0 16px 0")
-        title.element.style.set("color", "var(--lumo-primary-text-color)")
+        val existingProduct = selectedProducts[product.id]
         
-        // Información del producto
-        val productInfoLayout = VerticalLayout()
-        productInfoLayout.isSpacing = false
-        productInfoLayout.isPadding = false
-        
-        val productName = Span(product.name)
-        productName.element.style.set("font-weight", "bold")
-        productName.element.style.set("font-size", "1.2em")
-        productName.element.style.set("margin-bottom", "4px")
-        
-        val productDetails = Span("${product.brand} • ${product.category}")
-        productDetails.element.style.set("color", "var(--lumo-secondary-text-color)")
-        productDetails.element.style.set("font-size", "0.9em")
-        
-        productInfoLayout.add(productName, productDetails)
-        
-        // Campos editables
-        val quantityField = IntegerField("Cantidad")
-        quantityField.value = 1
-        quantityField.min = 1
-        quantityField.max = if (product.stock > 0) product.stock else 999
-        quantityField.width = "120px"
-        quantityField.element.style.set("font-size", "1.1em")
-        
-        var currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
-        val priceField = BigDecimalField("Precio Unitario")
-        priceField.value = currentPrice
-        //priceField.min = BigDecimal.ZERO
-        priceField.width = "150px"
-        priceField.element.style.set("font-size", "1.1em")
-        priceField.prefixComponent = Span("$")
-        
-        // Total calculado
-        currentPrice = if (isWholesaleMode) product.wholesalePrice else product.price
-        val totalLabel = Span("Total: $${currentPrice}")
-        totalLabel.element.style.set("font-weight", "bold")
-        totalLabel.element.style.set("font-size", "1.3em")
-        totalLabel.element.style.set("color", "var(--lumo-success-text-color)")
-        totalLabel.element.style.set("margin-top", "8px")
-        
-        // Función para actualizar el total
-        val updateTotal = {
-            val quantity = quantityField.value ?: 1
-            val price = priceField.value ?: BigDecimal.ZERO
-            val total = price.multiply(BigDecimal(quantity))
-            totalLabel.text = "Total: $$total"
-        }
-        
-        quantityField.addValueChangeListener { updateTotal() }
-        priceField.addValueChangeListener { updateTotal() }
-        
-        // Layout de campos
-        val fieldsLayout = HorizontalLayout()
-        fieldsLayout.add(quantityField, priceField)
-        fieldsLayout.isSpacing = true
-        fieldsLayout.setVerticalComponentAlignment(FlexComponent.Alignment.END, quantityField, priceField)
-        
-        // Validación de stock
-        val stockWarning = Span("")
-        stockWarning.element.style.set("color", "var(--lumo-error-text-color)")
-        stockWarning.element.style.set("font-size", "0.9em")
-        stockWarning.element.style.set("margin-top", "4px")
-        stockWarning.isVisible = false
-        
-        quantityField.addValueChangeListener { event ->
-            val quantity = event.value ?: 1
-            if (product.stock > 0 && quantity > product.stock) {
-                stockWarning.text = "⚠️ Stock disponible: ${product.stock}"
-                stockWarning.isVisible = true
-                quantityField.value = product.stock
-            } else {
-                stockWarning.isVisible = false
-            }
-        }
-        
-        // Botones
-        val buttonsLayout = HorizontalLayout()
-        buttonsLayout.setWidthFull()
-        buttonsLayout.justifyContentMode = FlexComponent.JustifyContentMode.END
-        buttonsLayout.isSpacing = true
-        buttonsLayout.element.style.set("margin-top", "20px")
-        
-        val cancelButton = Button("Cancelar") {
-            confirmDialog.close()
-        }
-        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
-        
-        val confirmButton = Button("Agregar a Venta", Icon(VaadinIcon.CHECK)) {
-            val finalQuantity = quantityField.value ?: 1
-            val currentProductPrice = if (isWholesaleMode) product.wholesalePrice else product.price
-            val finalPrice = priceField.value ?: currentProductPrice
+        if (existingProduct != null) {
+            // Incrementar cantidad del producto existente
+            val newQuantity = existingProduct.quantity + 1
             
-            // Validación final
-            if (product.stock > 0 && finalQuantity > product.stock) {
+            // Validar stock
+            if (product.stock > 0 && newQuantity > product.stock) {
                 Notification.show(
-                    "No hay suficiente stock disponible",
+                    "No hay suficiente stock disponible. Stock actual: ${product.stock}",
                     3000,
                     Notification.Position.TOP_CENTER
                 )
-                return@Button
+                return
             }
             
-            val selectionData = ProductSelectionData(
-                product = product,
-                quantity = finalQuantity,
-                unitPrice = finalPrice
+            selectedProducts[product.id] = existingProduct.copy(
+                quantity = newQuantity,
+                unitPrice = currentPrice
             )
+        } else {
+            // Agregar nuevo producto
+            if (product.stock > 0 && product.stock < 1) {
+                Notification.show(
+                    "No hay stock disponible",
+                    3000,
+                    Notification.Position.TOP_CENTER
+                )
+                return
+            }
             
-            onProductSelectCallback?.invoke(selectionData)
-            confirmDialog.close()
-            dialog.close()
-            
-            Notification.show(
-                "Producto agregado: ${product.name} (${finalQuantity}x)",
-                3000,
-                Notification.Position.TOP_CENTER
+            selectedProducts[product.id] = ProductSelectionData(
+                product = product,
+                quantity = 1,
+                unitPrice = currentPrice
             )
         }
-        confirmButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
         
-        buttonsLayout.add(cancelButton, confirmButton)
+        updateSelectedProductsTable()
         
-        // Layout principal del diálogo
-        val mainLayout = VerticalLayout()
-        mainLayout.add(
-            title,
-            productInfoLayout,
-            fieldsLayout,
-            stockWarning,
-            totalLabel,
-            buttonsLayout
+        Notification.show(
+            "Producto agregado: ${product.name}",
+            2000,
+            Notification.Position.TOP_CENTER
         )
-        mainLayout.isPadding = true
-        mainLayout.isSpacing = true
-        
-        confirmDialog.add(mainLayout)
-        confirmDialog.open()
     }
     
     private fun setupComponents() {
@@ -536,6 +436,73 @@ class ProductSearchMobile(
         
         instructionDiv.add(instructionIcon, instructionText)
         productsGridArea.add(instructionDiv)
+    }
+    
+    private fun createSelectedProductsArea(): Div {
+        val area = Div()
+        area.setWidthFull()
+        area.element.style.set("max-height", "200px")
+        area.element.style.set("background", "var(--lumo-contrast-5pct)")
+        area.element.style.set("border-radius", "8px")
+        area.element.style.set("padding", "16px")
+        area.element.style.set("margin-top", "16px")
+        
+        val headerLayout = HorizontalLayout()
+        headerLayout.setWidthFull()
+        headerLayout.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
+        headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER)
+        
+        val title = Span("Productos Seleccionados")
+        title.element.style.set("font-weight", "bold")
+        title.element.style.set("font-size", "1.1em")
+        
+        val confirmButton = Button("Agregar a Venta", Icon(VaadinIcon.CHECK)) {
+            confirmSelectedProducts()
+        }
+        confirmButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
+        confirmButton.element.style.set("margin-left", "auto")
+        
+        headerLayout.add(title, confirmButton)
+        
+        selectedProductsTable = Grid(ProductSelectionData::class.java, false)
+        selectedProductsTable.setWidthFull()
+        selectedProductsTable.element.style.set("max-height", "120px")
+        
+        selectedProductsTable.addColumn { it.product.name }.setHeader("Producto").setFlexGrow(3)
+        selectedProductsTable.addColumn { it.quantity }.setHeader("Cant.").setFlexGrow(1)
+        selectedProductsTable.addColumn { "$${it.unitPrice}" }.setHeader("Precio").setFlexGrow(1)
+        selectedProductsTable.addColumn { "$${it.unitPrice.multiply(java.math.BigDecimal(it.quantity))}" }.setHeader("Total").setFlexGrow(1)
+        
+        area.add(headerLayout, selectedProductsTable)
+        return area
+    }
+    
+    private fun updateSelectedProductsTable() {
+        selectedProductsTable.setItems(selectedProducts.values)
+    }
+    
+    private fun confirmSelectedProducts() {
+        if (selectedProducts.isEmpty()) {
+            Notification.show(
+                "No hay productos seleccionados",
+                2000,
+                Notification.Position.TOP_CENTER
+            )
+            return
+        }
+        
+        // Enviar todos los productos seleccionados
+        selectedProducts.values.forEach { productData ->
+            onProductSelectCallback?.invoke(productData)
+        }
+        
+        dialog.close()
+        
+        Notification.show(
+            "Se agregaron ${selectedProducts.size} producto(s) a la venta",
+            3000,
+            Notification.Position.TOP_CENTER
+        )
     }
     
     private fun loadBrands() {

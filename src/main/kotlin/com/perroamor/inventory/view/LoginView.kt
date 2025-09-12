@@ -59,11 +59,8 @@ class LoginView : VerticalLayout(), BeforeEnterObserver {
         // Header con logo/título
         val header = createHeader()
         
-        // Información de credenciales por defecto
-        val credentialsInfo = createCredentialsInfo()
-        
-        container.add(header, credentialsInfo, loginForm)
-        container.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, header, credentialsInfo, loginForm)
+        container.add(header, loginForm)
+        container.setHorizontalComponentAlignment(FlexComponent.Alignment.CENTER, header, loginForm)
         
         return container
     }

@@ -22,6 +22,8 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent
 import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
+import com.vaadin.flow.component.contextmenu.MenuItem
+import com.vaadin.flow.component.menubar.MenuBar
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
@@ -181,13 +183,22 @@ class NewSaleView(
         }
         addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
         
-        val mobileSearchButton = Button("Buscar (iPad)", Icon(VaadinIcon.MOBILE)) {
-            openMobileSearch()
-        }
-        mobileSearchButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
-        mobileSearchButton.element.style.set("margin-left", "8px")
+        val mobileSearchMenu = MenuBar()
+        mobileSearchMenu.element.style.set("margin-left", "8px")
         
-        val buttonsLayout = HorizontalLayout(addButton, mobileSearchButton)
+        val searchMenuItem = mobileSearchMenu.addItem("🔍 Buscar (iPad)")
+        searchMenuItem.addComponentAsFirst(Icon(VaadinIcon.MOBILE))
+        searchMenuItem.addThemeNames("success")
+        
+        searchMenuItem.subMenu.addItem("💰 Precios Menudeo") {
+            openMobileSearch(isWholesale = false)
+        }
+        
+        searchMenuItem.subMenu.addItem("🏪 Precios Mayoreo") {
+            openMobileSearch(isWholesale = true)
+        }
+        
+        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu)
         buttonsLayout.isSpacing = true
         
         headerLayout.add(buttonsLayout)
@@ -244,13 +255,16 @@ class NewSaleView(
         }
     }
     
-    private fun openMobileSearch() {
+    private fun openMobileSearch(isWholesale: Boolean) {
         if (selectedEventId == null) {
             Notification.show("Selecciona un evento primero", 3000, Notification.Position.TOP_CENTER)
             return
         }
         
-        productSearchMobile.show { selectionData ->
+        val modeText = if (isWholesale) "mayoreo" else "menudeo"
+        Notification.show("Búsqueda iniciada en modo $modeText", 2000, Notification.Position.TOP_CENTER)
+        
+        productSearchMobile.show(isWholesale) { selectionData ->
             // Crear un SaleItemData con los valores seleccionados en el diálogo móvil
             val saleItemData = SaleItemDialog.SaleItemData(
                 product = selectionData.product,
