@@ -5,12 +5,14 @@ import com.perroamor.inventory.service.EventService
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.checkbox.Checkbox
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog
 import com.vaadin.flow.component.datepicker.DatePicker
 import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.formlayout.FormLayout
 import com.vaadin.flow.component.grid.Grid
 import com.vaadin.flow.component.html.H2
 import com.vaadin.flow.component.html.H3
+import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.notification.Notification
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
@@ -100,9 +102,27 @@ class EventView(@Autowired private val eventService: EventService) : VerticalLay
             buttonsLayout
         }.setHeader("Ventas").setWidth("220px").setFlexGrow(0)
         
-        grid.asSingleSelect().addValueChangeListener { event ->
-            event.value?.let { editEvent(it) }
-        }
+        // Columna de acciones generales
+        grid.addComponentColumn { event ->
+            val buttonsLayout = HorizontalLayout()
+            
+            val editButton = Button(Icon(VaadinIcon.EDIT)) {
+                editEvent(event)
+            }.apply {
+                addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY)
+                element.setAttribute("title", "Editar Evento")
+            }
+            
+            val deleteButton = Button(Icon(VaadinIcon.TRASH)) {
+                confirmDeleteEvent(event)
+            }.apply {
+                addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR)
+                element.setAttribute("title", "Eliminar Evento")
+            }
+            
+            buttonsLayout.add(editButton, deleteButton)
+            buttonsLayout
+        }.setHeader("Acciones").setWidth("120px").setFlexGrow(0)
     }
     
     private fun configureForm() {
@@ -238,6 +258,39 @@ class EventView(@Autowired private val eventService: EventService) : VerticalLay
     private fun navigateToSales(event: Event) {
         // Navegar a la vista de ventas con el ID del evento como parámetro
         UI.getCurrent().navigate("sales/${event.id}")
+    }
+    
+    private fun confirmDeleteEvent(event: Event) {
+        val confirmDialog = ConfirmDialog(
+            "Confirmar Eliminación",
+            "¿Estás seguro de que deseas eliminar el evento '${event.name}'? Esta acción no se puede deshacer y también eliminará todas las ventas asociadas.",
+            "Sí, Eliminar",
+            { deleteEvent(event) },
+            "Cancelar",
+            { /* No hacer nada al cancelar */ }
+        )
+        
+        confirmDialog.setConfirmButtonTheme("error primary")
+        confirmDialog.open()
+    }
+    
+    private fun deleteEvent(event: Event) {
+        try {
+            eventService.delete(event.id)
+            updateList()
+            
+            Notification.show(
+                "Evento '${event.name}' eliminado correctamente",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+        } catch (e: Exception) {
+            Notification.show(
+                "Error al eliminar el evento: ${e.message}",
+                5000,
+                Notification.Position.TOP_CENTER
+            )
+        }
     }
     
     private fun updateList() {
