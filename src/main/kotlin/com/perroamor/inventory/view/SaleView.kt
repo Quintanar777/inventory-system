@@ -5,6 +5,7 @@ import com.perroamor.inventory.entity.SaleItem
 import com.perroamor.inventory.entity.Event
 import com.perroamor.inventory.service.SaleService
 import com.perroamor.inventory.service.EventService
+import com.perroamor.inventory.view.component.EventStatisticsDialog
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
@@ -32,7 +33,8 @@ import java.math.BigDecimal
 @RolesAllowed("ADMIN", "MANAGER", "EMPLOYEE")
 class SaleView(
     @Autowired private val saleService: SaleService,
-    @Autowired private val eventService: EventService
+    @Autowired private val eventService: EventService,
+    @Autowired private val eventStatisticsDialog: EventStatisticsDialog
 ) : VerticalLayout(), BeforeEnterObserver {
     
     private val eventSelector = ComboBox<Event>("Evento")
@@ -149,7 +151,9 @@ class SaleView(
         }
         
         val statisticsButton = Button("Estadísticas", Icon(VaadinIcon.CHART)) {
-            selectedEventId?.let { showEventStatistics(it) }
+            eventSelector.value?.let { event -> 
+                eventStatisticsDialog.show(event)
+            }
         }
         
         return HorizontalLayout(refreshButton, statisticsButton)
@@ -266,129 +270,6 @@ class SaleView(
         return layout
     }
     
-    private fun showEventStatistics(eventId: Long) {
-        val event = eventService.findById(eventId)
-        if (event == null) {
-            Notification.show("Evento no encontrado", 3000, Notification.Position.TOP_CENTER)
-            return
-        }
-        
-        // Obtener estadísticas del evento
-        val statistics = saleService.getEventStatistics(eventId)
-        val totalSales = statistics["totalSales"] as Long
-        val totalAmount = statistics["totalAmount"] as BigDecimal
-        val paymentMethods = statistics["paymentMethods"] as List<Array<Any>>
-        
-        showStatisticsDialog(event, totalSales, totalAmount, paymentMethods)
-    }
-    
-    private fun showStatisticsDialog(
-        event: Event, 
-        totalSales: Long, 
-        totalAmount: BigDecimal, 
-        paymentMethods: List<Array<Any>>
-    ) {
-        val dialog = Dialog()
-        dialog.width = "500px"
-        
-        val content = VerticalLayout()
-        
-        // Título
-        content.add(H2("📊 Estadísticas del Evento"))
-        content.add(H3(event.name))
-        
-        // Estadísticas generales
-        val generalStats = VerticalLayout()
-        generalStats.add(
-            createStatLine("🛒 Total de Ventas:", "$totalSales ventas"),
-            createStatLine("💰 Ingresos Totales:", "$$totalAmount")
-        )
-        content.add(generalStats)
-        
-        // Estadísticas por método de pago
-        if (paymentMethods.isNotEmpty()) {
-            content.add(H3("💳 Ventas por Método de Pago"))
-            
-            val paymentStats = VerticalLayout()
-            paymentMethods.forEach { methodData ->
-                val paymentMethod = methodData[0] as String
-                val count = methodData[1] as Long
-                val amount = methodData[2] as BigDecimal
-                
-                val icon = when (paymentMethod.lowercase()) {
-                    "efectivo" -> "💵"
-                    "tarjeta de débito", "tarjeta de crédito" -> "💳"
-                    "transferencia" -> "🏦"
-                    "paypal", "mercado pago" -> "📱"
-                    else -> "💰"
-                }
-                
-                paymentStats.add(
-                    createPaymentStatLine(
-                        "$icon $paymentMethod:", 
-                        "$count ventas", 
-                        "$$amount"
-                    )
-                )
-            }
-            content.add(paymentStats)
-        } else {
-            content.add(Span("Sin ventas registradas para este evento"))
-        }
-        
-        // Botón cerrar
-        val closeButton = Button("Cerrar") { dialog.close() }
-        closeButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        
-        content.add(HorizontalLayout(closeButton).apply {
-            justifyContentMode = com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode.CENTER
-        })
-        
-        dialog.add(content)
-        dialog.open()
-    }
-    
-    private fun createStatLine(label: String, value: String): HorizontalLayout {
-        val layout = HorizontalLayout()
-        
-        val labelSpan = Span(label)
-        labelSpan.style.set("font-weight", "bold")
-        
-        val valueSpan = Span(value)
-        valueSpan.style.set("color", "var(--lumo-primary-text-color)")
-        valueSpan.style.set("font-weight", "bold")
-        
-        layout.add(labelSpan, valueSpan)
-        layout.justifyContentMode = com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode.BETWEEN
-        layout.setWidthFull()
-        
-        return layout
-    }
-    
-    private fun createPaymentStatLine(method: String, count: String, amount: String): HorizontalLayout {
-        val layout = HorizontalLayout()
-        
-        val methodSpan = Span(method)
-        methodSpan.style.set("font-weight", "500")
-        
-        val detailsLayout = HorizontalLayout()
-        
-        val countSpan = Span(count)
-        countSpan.style.set("color", "var(--lumo-secondary-text-color)")
-        countSpan.style.set("margin-right", "10px")
-        
-        val amountSpan = Span(amount)
-        amountSpan.style.set("color", "var(--lumo-primary-text-color)")
-        amountSpan.style.set("font-weight", "bold")
-        
-        detailsLayout.add(countSpan, amountSpan)
-        
-        layout.add(methodSpan, detailsLayout)
-        layout.justifyContentMode = com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode.BETWEEN
-        layout.setWidthFull()
-        
-        return layout
-    }
     
     private fun updateEventList() {
         val currentEvents = eventService.findCurrentEvents()

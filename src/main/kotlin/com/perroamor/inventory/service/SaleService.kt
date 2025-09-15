@@ -162,6 +162,46 @@ class SaleService(
         )
     }
     
+    fun getEventStatisticsByBrand(eventId: Long): Map<String, Map<String, Any>> {
+        val allSales = findByEventId(eventId)
+        val allItems = allSales.flatMap { sale -> 
+            findItemsBySaleId(sale.id!!).map { item -> sale to item } 
+        }
+        
+        // Agrupar por marca
+        val itemsByBrand = allItems.groupBy { (_, item) -> item.product.brand }
+        
+        val brandStats = mutableMapOf<String, Map<String, Any>>()
+        
+        itemsByBrand.forEach { (brand, brandItems) ->
+            val brandSales = brandItems.map { it.first }.distinctBy { it.id }
+            val brandSaleItems = brandItems.map { it.second }
+            
+            val totalSales = brandSales.size.toLong()
+            val totalAmount = brandSaleItems.sumOf { it.totalPrice }
+            val totalQuantity = brandSaleItems.sumOf { it.quantity }
+            
+            // Métodos de pago para esta marca
+            val paymentMethods = brandSales.groupBy { it.paymentMethod }
+                .map { (method, sales) ->
+                    arrayOf(
+                        method,
+                        sales.size.toLong(),
+                        sales.sumOf { it.totalAmount }
+                    )
+                }
+            
+            brandStats[brand] = mapOf(
+                "totalSales" to totalSales,
+                "totalAmount" to totalAmount,
+                "totalQuantity" to totalQuantity,
+                "paymentMethods" to paymentMethods
+            )
+        }
+        
+        return brandStats
+    }
+    
     private fun validateSale(sale: Sale) {
         require(sale.totalAmount >= BigDecimal.ZERO) { "El total de la venta no puede ser negativo" }
         require(sale.paymentMethod.isNotBlank()) { "El método de pago es obligatorio" }
