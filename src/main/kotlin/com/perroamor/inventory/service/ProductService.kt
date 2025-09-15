@@ -46,4 +46,12 @@ class ProductService(private val productRepository: ProductRepository) {
             }
         }
     }
+    
+    fun reduceStockForced(id: Long, quantity: Int): Product? {
+        val product = findById(id)
+        return product?.let {
+            val updatedProduct = it.copy(stock = it.stock - quantity)
+            save(updatedProduct)
+        }
+    }
 }

@@ -5,6 +5,7 @@ import com.perroamor.inventory.entity.Sale
 import com.perroamor.inventory.entity.SaleItem
 import com.perroamor.inventory.service.EventService
 import com.perroamor.inventory.service.SaleService
+import com.perroamor.inventory.service.ProductService
 import com.perroamor.inventory.view.component.SaleItemDialog
 import com.perroamor.inventory.view.component.ProductSearchMobile
 import com.vaadin.flow.component.button.Button
@@ -40,6 +41,7 @@ import java.util.*
 class NewSaleView(
     @Autowired private val eventService: EventService,
     @Autowired private val saleService: SaleService,
+    @Autowired private val productService: ProductService,
     @Autowired private val saleItemDialog: SaleItemDialog,
     @Autowired private val productSearchMobile: ProductSearchMobile
 ) : VerticalLayout(), BeforeEnterObserver {
@@ -468,7 +470,18 @@ class NewSaleView(
                 )
             }
             
+            // Guardar la venta primero
             saleService.saveWithItems(sale, items)
+            
+            // Decrementar stock de productos vendidos (sin validación de stock)
+            saleItems.forEach { itemData ->
+                try {
+                    productService.reduceStockForced(itemData.product.id, itemData.quantity)
+                } catch (e: Exception) {
+                    // Log el error pero no interrumpir el proceso de venta
+                    println("Error al decrementar stock del producto ${itemData.product.name}: ${e.message}")
+                }
+            }
             
             Notification.show(
                 "¡Venta guardada exitosamente! Total: $${sale.totalAmount}",

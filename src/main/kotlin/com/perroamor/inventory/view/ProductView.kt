@@ -46,6 +46,7 @@ class ProductView(
     private val descriptionField = TextField("Descripción")
     
     // Filtros
+    private val nameSearchField = TextField("Buscar por Nombre")
     private val brandFilterField = ComboBox<Brand>("Filtrar por Marca")
 
     private val categories = mutableListOf(
@@ -136,6 +137,11 @@ class ProductView(
 
         grid.asSingleSelect().addValueChangeListener { event ->
             // Removemos el listener automático de edición para evitar conflictos con los botones
+        }
+        
+        // Agregar listener para doble click para editar producto
+        grid.addItemDoubleClickListener { event ->
+            editProduct(event.item)
         }
     }
 
@@ -278,12 +284,28 @@ class ProductView(
 
     private fun updateList() {
         val allProducts = productService.findAll()
-        val filteredProducts = if (brandFilterField.value != null) {
-            allProducts.filter { it.brand == brandFilterField.value.name }
-        } else {
-            allProducts
+        
+        // Aplicar filtros
+        var filteredProducts = allProducts
+        
+        // Filtrar por nombre si hay texto en el campo de búsqueda
+        val searchText = nameSearchField.value
+        if (!searchText.isNullOrBlank()) {
+            filteredProducts = filteredProducts.filter { 
+                it.name.contains(searchText, ignoreCase = true) 
+            }
         }
-        grid.setItems(filteredProducts)
+        
+        // Filtrar por marca si hay una seleccionada
+        if (brandFilterField.value != null) {
+            filteredProducts = filteredProducts.filter { 
+                it.brand == brandFilterField.value.name 
+            }
+        }
+        
+        // Ordenar por ID de menor a mayor
+        val sortedProducts = filteredProducts.sortedBy { it.id }
+        grid.setItems(sortedProducts)
     }
     
     private fun updateBrandList() {
@@ -297,6 +319,15 @@ class ProductView(
     }
     
     private fun configureFilters() {
+        // Configurar búsqueda por nombre
+        nameSearchField.placeholder = "Escriba para buscar..."
+        nameSearchField.isClearButtonVisible = true
+        nameSearchField.setWidth("300px")
+        nameSearchField.addValueChangeListener { 
+            updateList()
+        }
+        
+        // Configurar filtro por marca
         val activeBrands = brandService.findActive()
         brandFilterField.setItems(activeBrands)
         brandFilterField.setItemLabelGenerator { it.name }
@@ -309,8 +340,9 @@ class ProductView(
     }
     
     private fun createFilterBar(): HorizontalLayout {
-        return HorizontalLayout(brandFilterField).apply {
+        return HorizontalLayout(nameSearchField, brandFilterField).apply {
             defaultVerticalComponentAlignment = com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END
+            setWidthFull()
         }
     }
     
