@@ -564,7 +564,7 @@ class SaleView(
     }
     
     private fun updateSalesGrid(event: Event) {
-        val sales = saleService.findByEvent(event)
+        val sales = saleService.findByEvent(event).sortedBy { it.id }
         grid.setItems(sales)
     }
     
