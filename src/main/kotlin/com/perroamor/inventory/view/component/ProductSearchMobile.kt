@@ -19,6 +19,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
 import com.vaadin.flow.component.textfield.NumberField
+import com.vaadin.flow.component.textfield.TextField
 import java.math.BigDecimal
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -34,11 +35,13 @@ class ProductSearchMobile(
     private lateinit var brandButtonsLayout: HorizontalLayout
     private lateinit var productsGridArea: Div
     private lateinit var selectedBrandLabel: Span
+    private lateinit var searchField: TextField
     private lateinit var addToSaleButton: Button
     
     private var brands = listOf<Brand>()
     private var currentSelectedBrand: Brand? = null
     private var isWholesaleMode: Boolean = false
+    private var allBrandProducts = listOf<Product>()
     private val selectedProducts = mutableMapOf<Long, ProductSelectionData>()
     private val productCounterElements = mutableMapOf<Long, Span>()
     private val productPriceFields = mutableMapOf<Long, NumberField>()
@@ -59,6 +62,7 @@ class ProductSearchMobile(
         
         // Resetear estado inicial
         currentSelectedBrand = null
+        allBrandProducts = listOf()
         
         loadBrands() // Cargar marcas desde la base de datos
         createDialog()
@@ -86,13 +90,16 @@ class ProductSearchMobile(
         // Área de botones de marca
         brandButtonsLayout = createBrandButtons()
         
-        // Label para mostrar la marca seleccionada
+        // Label para mostrar la marca seleccionada (inicializar primero)
         selectedBrandLabel = Span("Selecciona una marca para ver los productos")
         selectedBrandLabel.element.style.set("font-weight", "bold")
         selectedBrandLabel.element.style.set("font-size", "1.2em")
         selectedBrandLabel.element.style.set("color", "var(--lumo-primary-text-color)")
         selectedBrandLabel.element.style.set("text-align", "center")
         selectedBrandLabel.element.style.set("margin", "16px 0")
+        
+        // Campo de búsqueda y label de marca seleccionada
+        val searchAndLabelLayout = createSearchAndLabelLayout()
         
         // Área del grid de productos
         productsGridArea = Div()
@@ -106,7 +113,7 @@ class ProductSearchMobile(
         contentArea.add(
             headerLayout,
             brandButtonsLayout,
-            selectedBrandLabel,
+            searchAndLabelLayout,
             productsGridArea,
             addToSaleButton
         )
@@ -114,7 +121,7 @@ class ProductSearchMobile(
         // Configurar flex grow
         contentArea.setFlexGrow(0.0, headerLayout)
         contentArea.setFlexGrow(0.0, brandButtonsLayout)
-        contentArea.setFlexGrow(0.0, selectedBrandLabel)
+        contentArea.setFlexGrow(0.0, searchAndLabelLayout)
         contentArea.setFlexGrow(1.0, productsGridArea)
         contentArea.setFlexGrow(0.0, addToSaleButton)
         
@@ -147,6 +154,31 @@ class ProductSearchMobile(
         headerContainer.add(topRow)
         
         return headerContainer
+    }
+    
+    private fun createSearchAndLabelLayout(): VerticalLayout {
+        val layout = VerticalLayout()
+        layout.isSpacing = false
+        layout.isPadding = false
+        layout.setWidthFull()
+        
+        // Campo de búsqueda
+        searchField = TextField()
+        searchField.placeholder = "Buscar productos..."
+        searchField.prefixComponent = Icon(VaadinIcon.SEARCH)
+        searchField.setWidthFull()
+        searchField.element.style.set("margin", "0 16px")
+        searchField.element.style.set("font-size", "1.1em")
+        searchField.isVisible = false // Inicialmente oculto
+        
+        // Configurar listener para búsqueda en tiempo real
+        searchField.addValueChangeListener { event ->
+            filterProducts(event.value)
+        }
+        
+        layout.add(searchField, selectedBrandLabel)
+        
+        return layout
     }
     
     private fun createBrandButtons(): HorizontalLayout {
@@ -224,6 +256,8 @@ class ProductSearchMobile(
         currentSelectedBrand = brand
         selectedBrandLabel.text = "Productos de: ${brand.name}"
         brandButtonsLayout.isVisible = false
+        searchField.isVisible = true
+        searchField.value = "" // Limpiar búsqueda anterior
         loadProductsForBrand(brand)
     }
     
@@ -235,9 +269,9 @@ class ProductSearchMobile(
         // Los contadores se recrearán automáticamente al crear las tarjetas
         
         // Obtener productos de la marca seleccionada
-        val products = productService.findByBrand(brand.name)
+        allBrandProducts = productService.findByBrand(brand.name)
         
-        if (products.isEmpty()) {
+        if (allBrandProducts.isEmpty()) {
             val emptyMessage = Span("No hay productos disponibles para esta marca")
             emptyMessage.element.style.set("text-align", "center")
             emptyMessage.element.style.set("font-style", "italic")
@@ -248,16 +282,42 @@ class ProductSearchMobile(
             return
         }
         
+        // Mostrar todos los productos inicialmente
+        displayProducts(allBrandProducts)
+    }
+    
+    private fun displayProducts(products: List<Product>) {
+        // Limpiar área de productos
+        productsGridArea.removeAll()
+        
         // Crear grid de productos
         val gridContainer = createProductsGrid(products)
         productsGridArea.add(gridContainer)
         
-        // Actualizar contadores para productos ya seleccionados de esta marca
+        // Actualizar contadores para productos ya seleccionados
         products.forEach { product ->
             if (selectedProducts.containsKey(product.id)) {
                 updateProductCardCounter(product)
             }
         }
+    }
+    
+    private fun filterProducts(searchTerm: String?) {
+        if (allBrandProducts.isEmpty()) return
+        
+        val filteredProducts = if (searchTerm.isNullOrBlank()) {
+            // Mostrar todos los productos si no hay término de búsqueda
+            allBrandProducts
+        } else {
+            // Filtrar productos por nombre, categoría o descripción
+            allBrandProducts.filter { product ->
+                product.name.contains(searchTerm, ignoreCase = true) ||
+                product.category.contains(searchTerm, ignoreCase = true) ||
+                (product.description?.contains(searchTerm, ignoreCase = true) ?: false)
+            }
+        }
+        
+        displayProducts(filteredProducts)
     }
     
     private fun createProductsGrid(products: List<Product>): Div {
@@ -468,6 +528,12 @@ class ProductSearchMobile(
     }
     
     private fun setupComponents() {
+        // Resetear estado del campo de búsqueda
+        if (::searchField.isInitialized) {
+            searchField.isVisible = false
+            searchField.value = ""
+        }
+        
         // Configuración inicial - mostrar instrucciones
         productsGridArea.removeAll()
         val instructionDiv = Div()
