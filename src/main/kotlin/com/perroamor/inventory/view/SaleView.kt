@@ -22,6 +22,7 @@ import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.FlexComponent
+import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
@@ -160,12 +161,116 @@ class SaleView(
     }
     
     private fun editSale(sale: Sale) {
-        // TODO: Implementar edición de venta existente
-        Notification.show(
-            "Próximamente: Edición de venta #${sale.id}",
-            3000,
-            Notification.Position.TOP_CENTER
+        if (sale.isCancelled) {
+            Notification.show(
+                "No se puede editar una venta cancelada",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+            return
+        }
+        
+        val dialog = Dialog()
+        dialog.width = "500px"
+        dialog.isCloseOnEsc = true
+        dialog.isCloseOnOutsideClick = false
+        
+        val content = VerticalLayout()
+        content.isPadding = true
+        content.isSpacing = true
+        
+        // Título
+        content.add(H2("✏️ Editar Venta #${sale.id}"))
+        
+        // Campo para editar el total
+        val totalField = BigDecimalField("Total de la Venta")
+        totalField.value = sale.totalAmount
+        totalField.prefixComponent = Span("$")
+        totalField.setWidthFull()
+        totalField.placeholder = "0.00"
+        
+        // ComboBox para método de pago
+        val paymentMethodCombo = ComboBox<String>("Método de Pago")
+        paymentMethodCombo.setItems(
+            "Efectivo",
+            "Tarjeta de Débito",
+            "Tarjeta de Crédito",
+            "Transferencia",
+            "Depósito",
+            "PayPal",
+            "Mercado Pago",
+            "Otro"
         )
+        paymentMethodCombo.value = sale.paymentMethod
+        paymentMethodCombo.setWidthFull()
+        
+        content.add(totalField, paymentMethodCombo)
+        
+        // Botones
+        val buttonsLayout = HorizontalLayout()
+        buttonsLayout.setWidthFull()
+        buttonsLayout.justifyContentMode = FlexComponent.JustifyContentMode.END
+        
+        val cancelButton = Button("Cancelar") { dialog.close() }
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        
+        val saveButton = Button("Guardar Cambios", Icon(VaadinIcon.CHECK)) {
+            saveSaleChanges(sale, totalField.value, paymentMethodCombo.value, dialog)
+        }
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+        
+        buttonsLayout.add(cancelButton, saveButton)
+        content.add(buttonsLayout)
+        
+        dialog.add(content)
+        dialog.open()
+    }
+    
+    private fun saveSaleChanges(sale: Sale, newTotal: BigDecimal?, newPaymentMethod: String?, dialog: Dialog) {
+        if (newTotal == null || newTotal <= BigDecimal.ZERO) {
+            Notification.show(
+                "El total debe ser mayor a cero",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+            return
+        }
+        
+        if (newPaymentMethod.isNullOrBlank()) {
+            Notification.show(
+                "Debe seleccionar un método de pago",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+            return
+        }
+        
+        try {
+            // Actualizar la venta usando copy() para data class
+            val updatedSale = sale.copy(
+                totalAmount = newTotal,
+                paymentMethod = newPaymentMethod
+            )
+            
+            saleService.save(updatedSale)
+            
+            // Actualizar la grid
+            eventSelector.value?.let { updateSalesGrid(it) }
+            
+            dialog.close()
+            
+            Notification.show(
+                "✅ Venta #${sale.id} actualizada correctamente",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+        } catch (e: Exception) {
+            Notification.show(
+                "Error al actualizar la venta: ${e.message}",
+                5000,
+                Notification.Position.TOP_CENTER
+            )
+        }
     }
     
     

@@ -470,18 +470,7 @@ class NewSaleView(
                 )
             }
             
-            // Guardar la venta primero
             saleService.saveWithItems(sale, items)
-            
-            // Decrementar stock de productos vendidos (sin validación de stock)
-            saleItems.forEach { itemData ->
-                try {
-                    productService.reduceStockForced(itemData.product.id, itemData.quantity)
-                } catch (e: Exception) {
-                    // Log el error pero no interrumpir el proceso de venta
-                    println("Error al decrementar stock del producto ${itemData.product.name}: ${e.message}")
-                }
-            }
             
             Notification.show(
                 "¡Venta guardada exitosamente! Total: $${sale.totalAmount}",

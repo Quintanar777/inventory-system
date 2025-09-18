@@ -41,6 +41,7 @@ class ProductSearchMobile(
     private var isWholesaleMode: Boolean = false
     private val selectedProducts = mutableMapOf<Long, ProductSelectionData>()
     private val productCounterElements = mutableMapOf<Long, Span>()
+    private val productPriceFields = mutableMapOf<Long, NumberField>()
     data class ProductSelectionData(
         val product: Product,
         val quantity: Int,
@@ -54,6 +55,7 @@ class ProductSearchMobile(
         this.isWholesaleMode = isWholesaleMode
         selectedProducts.clear()
         productCounterElements.clear()
+        productPriceFields.clear()
         
         // Resetear estado inicial
         currentSelectedBrand = null
@@ -377,8 +379,9 @@ class ProductSearchMobile(
         counterBadge.element.style.set("box-shadow", "0 2px 4px rgba(0,0,0,0.3)")
         counterBadge.isVisible = false
         
-        // Agregar al mapa de contadores (reemplazar si ya existe)
+        // Agregar al mapa de contadores y campos de precio (reemplazar si ya existe)
         productCounterElements[product.id] = counterBadge
+        productPriceFields[product.id] = priceField
         
         // Hacer la tarjeta posicionable para el badge absoluto
         card.element.style.set("position", "relative")
@@ -400,14 +403,16 @@ class ProductSearchMobile(
         
         // Click handler
         card.element.addEventListener("click") { _ ->
-            addProductToSelection(product, priceField)
+            addProductToSelection(product)
         }
         
         return card
     }
     
-    private fun addProductToSelection(product: Product, priceField: NumberField) {
-        val currentPrice = BigDecimal(priceField.value ?: product.price.toDouble())
+    private fun addProductToSelection(product: Product) {
+        val priceField = productPriceFields[product.id]
+        val currentPrice = priceField?.value?.let { BigDecimal(it) } 
+            ?: (if (isWholesaleMode) product.wholesalePrice else product.price)
         
         val existingProduct = selectedProducts[product.id]
         
@@ -549,9 +554,16 @@ class ProductSearchMobile(
             return
         }
         
-        // Enviar todos los productos seleccionados
+        // Enviar todos los productos seleccionados con precios actualizados
         selectedProducts.values.forEach { productData ->
-            onProductSelectCallback?.invoke(productData)
+            // Obtener el precio actual del campo de texto
+            val priceField = productPriceFields[productData.product.id]
+            val currentPrice = priceField?.value?.let { BigDecimal(it) } 
+                ?: productData.unitPrice
+            
+            // Crear una nueva instancia con el precio actualizado
+            val updatedProductData = productData.copy(unitPrice = currentPrice)
+            onProductSelectCallback?.invoke(updatedProductData)
         }
         
         // Cerrar el diálogo directamente
