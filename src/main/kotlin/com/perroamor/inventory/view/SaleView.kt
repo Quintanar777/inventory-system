@@ -23,6 +23,7 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.FlexComponent
 import com.vaadin.flow.component.textfield.BigDecimalField
+import com.vaadin.flow.data.renderer.ComponentRenderer
 import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
@@ -40,7 +41,7 @@ class SaleView(
     
     private val eventSelector = ComboBox<Event>("Evento")
     private val grid = Grid(Sale::class.java)
-    
+    private val expandedSales = mutableSetOf<Long>()
     
     private var selectedEventId: Long? = null
     
@@ -82,6 +83,24 @@ class SaleView(
         grid.setSizeFull()
         grid.removeAllColumns()
         
+        // Columna de expansión
+        grid.addComponentColumn { sale ->
+            val expandIcon = if (expandedSales.contains(sale.id)) {
+                Icon(VaadinIcon.MINUS_CIRCLE)
+            } else {
+                Icon(VaadinIcon.PLUS_CIRCLE)
+            }
+            
+            val expandButton = Button(expandIcon) {
+                toggleSaleExpansion(sale)
+            }.apply {
+                addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY_INLINE)
+                element.setAttribute("title", "Ver/Ocultar detalles")
+            }
+            
+            expandButton
+        }.setHeader("").setWidth("50px").setFlexGrow(0)
+        
         grid.addColumn(Sale::id).setHeader("ID").setWidth("60px").setFlexGrow(0)
         
         grid.addColumn { sale ->
@@ -95,12 +114,8 @@ class SaleView(
         grid.addColumn(Sale::paymentMethod).setHeader("Pago").setWidth("200px").setFlexGrow(0)
         
         grid.addColumn { sale ->
-            when {
-                sale.customerName != null -> sale.customerName!!
-                sale.customerPhone != null -> sale.customerPhone!!
-                else -> "Sin datos"
-            }
-        }.setHeader("Cliente").setWidth("250px").setFlexGrow(0)
+            getBrandsForSale(sale)
+        }.setHeader("Marcas").setWidth("250px").setFlexGrow(0)
         
         grid.addColumn { sale ->
             when {
@@ -113,12 +128,6 @@ class SaleView(
         // Columna de acciones
         grid.addComponentColumn { sale ->
             val buttonsLayout = HorizontalLayout()
-            
-            val detailsButton = Button("Detalles", Icon(VaadinIcon.EYE)) {
-                showSaleDetails(sale)
-            }.apply {
-                addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY)
-            }
             
             if (!sale.isCancelled) {
                 val editButton = Button("Editar", Icon(VaadinIcon.EDIT)) {
@@ -137,13 +146,104 @@ class SaleView(
                 buttonsLayout.add(deleteButton)
             }
             
-            buttonsLayout.add(detailsButton)
             buttonsLayout
         }.setHeader("Acciones").setFlexGrow(1)
         
-        grid.asSingleSelect().addValueChangeListener { event ->
-            event.value?.let { editSale(it) }
+        // Configurar la expansión de filas con detalles
+        grid.setItemDetailsRenderer(ComponentRenderer { sale ->
+            createSaleDetailsComponent(sale)
+        })
+        
+        // Controlar qué filas están expandidas
+        grid.setDetailsVisibleOnClick(false)
+        grid.addItemClickListener { event ->
+            if (event.clickCount == 1) {
+                toggleSaleExpansion(event.item)
+            }
         }
+    }
+    
+    private fun createSaleDetailsComponent(sale: Sale): VerticalLayout {
+        val detailsLayout = VerticalLayout()
+        detailsLayout.isPadding = true
+        detailsLayout.isSpacing = true
+        detailsLayout.style.set("background-color", "var(--lumo-contrast-5pct)")
+        detailsLayout.style.set("border-left", "3px solid var(--lumo-primary-color)")
+        detailsLayout.style.set("margin", "8px 0")
+        
+        // Información adicional de la venta
+        val saleInfoLayout = HorizontalLayout()
+        saleInfoLayout.setWidthFull()
+        saleInfoLayout.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
+        
+        val leftInfo = VerticalLayout()
+        leftInfo.isPadding = false
+        leftInfo.isSpacing = false
+        
+        if (sale.customerName != null) {
+            leftInfo.add(Span("👤 Cliente: ${sale.customerName}"))
+        }
+        if (sale.customerPhone != null) {
+            leftInfo.add(Span("📞 Teléfono: ${sale.customerPhone}"))
+        }
+        
+        val rightInfo = VerticalLayout()
+        rightInfo.isPadding = false
+        rightInfo.isSpacing = false
+        rightInfo.add(Span("💳 Método: ${sale.paymentMethod}"))
+        rightInfo.add(Span("💰 Total: $${sale.totalAmount}"))
+        
+        saleInfoLayout.add(leftInfo, rightInfo)
+        detailsLayout.add(saleInfoLayout)
+        
+        // Tabla de productos
+        val productsLabel = Span("🛍️ Productos:")
+        productsLabel.style.set("font-weight", "bold")
+        productsLabel.style.set("color", "var(--lumo-primary-text-color)")
+        detailsLayout.add(productsLabel)
+        
+        val itemsGrid = Grid<SaleItem>()
+        itemsGrid.height = "200px"
+        itemsGrid.addThemeVariants(GridVariant.LUMO_COMPACT, GridVariant.LUMO_ROW_STRIPES)
+        
+        // Configurar columnas del grid de items
+        itemsGrid.addColumn { item ->
+            if (item.variant != null) {
+                "${item.product.name} - ${item.variant!!.variantName}"
+            } else {
+                item.product.name
+            }
+        }.setHeader("Producto").setFlexGrow(2)
+        
+        itemsGrid.addColumn { "${it.quantity}" }.setHeader("Cant.").setWidth("80px").setFlexGrow(0)
+        itemsGrid.addColumn { "$${it.unitPrice}" }.setHeader("P. Unit.").setWidth("100px").setFlexGrow(0)
+        itemsGrid.addColumn { "$${it.totalPrice}" }.setHeader("Total").setWidth("100px").setFlexGrow(0)
+        
+        itemsGrid.addColumn { item ->
+            item.personalization ?: "-"
+        }.setHeader("Personalización").setFlexGrow(1)
+        
+        // Cargar items de la venta
+        val saleItems = saleService.findSaleItems(sale.id)
+        itemsGrid.setItems(saleItems)
+        
+        detailsLayout.add(itemsGrid)
+        
+        // Resumen del total calculado
+        val calculatedTotal = saleItems.sumOf { it.totalPrice }
+        val totalLayout = HorizontalLayout()
+        totalLayout.setWidthFull()
+        totalLayout.justifyContentMode = FlexComponent.JustifyContentMode.END
+        
+        val totalLabel = Span("Total calculado: $$calculatedTotal")
+        totalLabel.style.set("font-weight", "bold")
+        totalLabel.style.set("font-size", "1.1em")
+        totalLabel.style.set("color", "var(--lumo-primary-text-color)")
+        
+        totalLayout.add(totalLabel)
+        detailsLayout.add(totalLayout)
+        
+        return detailsLayout
     }
     
     private fun createToolbar(): HorizontalLayout {
@@ -158,6 +258,37 @@ class SaleView(
         }
         
         return HorizontalLayout(refreshButton, statisticsButton)
+    }
+    
+    private fun getBrandsForSale(sale: Sale): String {
+        return try {
+            val saleItems = saleService.findSaleItems(sale.id)
+            val brands = saleItems.map { it.product.brand }.distinct().sorted()
+            if (brands.isNotEmpty()) {
+                brands.joinToString(", ")
+            } else {
+                "-"
+            }
+        } catch (e: Exception) {
+            "-"
+        }
+    }
+    
+    private fun toggleSaleExpansion(sale: Sale) {
+        val saleId = sale.id
+        
+        if (expandedSales.contains(saleId)) {
+            // Contraer la fila
+            expandedSales.remove(saleId)
+            grid.setDetailsVisible(sale, false)
+        } else {
+            // Expandir la fila
+            expandedSales.add(saleId)
+            grid.setDetailsVisible(sale, true)
+        }
+        
+        // Actualizar el icono del botón de expansión
+        grid.dataProvider.refreshItem(sale)
     }
     
     private fun editSale(sale: Sale) {
@@ -193,8 +324,7 @@ class SaleView(
         val paymentMethodCombo = ComboBox<String>("Método de Pago")
         paymentMethodCombo.setItems(
             "Efectivo",
-            "Tarjeta de Débito",
-            "Tarjeta de Crédito",
+            "Tarjeta",
             "Transferencia",
             "Depósito",
             "PayPal",
@@ -327,7 +457,7 @@ class SaleView(
         }.setHeader("Personalización").setFlexGrow(1)
         
         // Cargar items de la venta
-        val saleItems = saleService.findSaleItems(sale.id!!)
+        val saleItems = saleService.findSaleItems(sale.id)
         itemsGrid.setItems(saleItems)
         
         content.add(itemsGrid)
