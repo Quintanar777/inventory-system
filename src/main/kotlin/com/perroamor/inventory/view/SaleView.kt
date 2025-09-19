@@ -28,6 +28,10 @@ import com.vaadin.flow.router.*
 import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Route("sales", layout = MainLayout::class)
 @RouteAlias("sales/:eventId", layout = MainLayout::class)
@@ -40,20 +44,23 @@ class SaleView(
 ) : VerticalLayout(), BeforeEnterObserver {
     
     private val eventSelector = ComboBox<Event>("Evento")
+    private val dateFilter = ComboBox<LocalDate>("Filtrar por Fecha")
     private val grid = Grid(Sale::class.java)
     private val expandedSales = mutableSetOf<Long>()
     
     private var selectedEventId: Long? = null
+    private var selectedDate: LocalDate? = null
     
     init {
         setSizeFull()
         setupEventSelector()
+        setupDateFilter()
         configureGrid()
         
         add(
             H2("Gestión de Ventas"),
             createToolbar(),
-            eventSelector,
+            createFiltersLayout(),
             grid
         )
         
@@ -62,21 +69,57 @@ class SaleView(
     
     private fun setupEventSelector() {
         eventSelector.setItemLabelGenerator { "${it.name} (${it.location})" }
-        eventSelector.setWidthFull()
         eventSelector.element.style.set("font-size", "1.1em")
         eventSelector.element.style.set("min-height", "45px")
-        eventSelector.element.style.set("padding-top", "8px")
-        eventSelector.element.style.set("margin-bottom", "16px")
         
         eventSelector.addValueChangeListener { event ->
             event.value?.let { selectedEvent ->
                 selectedEventId = selectedEvent.id
+                updateDateFilterOptions(selectedEvent)
                 updateSalesGrid(selectedEvent)
             } ?: run {
                 selectedEventId = null
+                selectedDate = null
+                dateFilter.setItems(emptyList())
+                dateFilter.value = null
                 grid.setItems(emptyList())
             }
         }
+    }
+    
+    private fun setupDateFilter() {
+        dateFilter.setItemLabelGenerator { date ->
+            val dayOfWeek = date.dayOfWeek.getDisplayName(
+                java.time.format.TextStyle.FULL, 
+                Locale("es", "ES")
+            ).uppercase()
+            val formatter = DateTimeFormatter.ofPattern("dd MMM", Locale("es", "ES"))
+            "$dayOfWeek ${date.format(formatter)}"
+        }
+        dateFilter.element.style.set("font-size", "1.1em")
+        dateFilter.element.style.set("min-height", "45px")
+        dateFilter.placeholder = "Seleccionar día (opcional)"
+        dateFilter.isClearButtonVisible = true
+        
+        dateFilter.addValueChangeListener { event ->
+            selectedDate = event.value
+            eventSelector.value?.let { selectedEvent ->
+                updateSalesGrid(selectedEvent)
+            }
+        }
+    }
+    
+    private fun updateDateFilterOptions(event: Event) {
+        val sales = saleService.findByEvent(event)
+        val mexicoZone = ZoneId.of("America/Mexico_City")
+        val uniqueDates = sales.map { sale ->
+            val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+            mexicoDateTime.toLocalDate()
+        }.distinct().sorted()
+        
+        dateFilter.setItems(uniqueDates)
+        selectedDate = null
+        dateFilter.value = null
     }
     
     private fun configureGrid() {
@@ -104,7 +147,9 @@ class SaleView(
         grid.addColumn(Sale::id).setHeader("ID").setWidth("60px").setFlexGrow(0)
         
         grid.addColumn { sale ->
-            "${sale.saleDate.toLocalDate()} ${sale.saleDate.toLocalTime().toString().substring(0,5)}"
+            val mexicoZone = ZoneId.of("America/Mexico_City")
+            val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+            "${mexicoDateTime.toLocalDate()} ${mexicoDateTime.toLocalTime().toString().substring(0,5)}"
         }.setHeader("Fecha y Hora").setWidth("200px").setFlexGrow(0)
         
         grid.addColumn { sale ->
@@ -248,7 +293,10 @@ class SaleView(
     
     private fun createToolbar(): HorizontalLayout {
         val refreshButton = Button("Actualizar") { 
-            eventSelector.value?.let { updateSalesGrid(it) }
+            eventSelector.value?.let { selectedEvent ->
+                updateDateFilterOptions(selectedEvent)
+                updateSalesGrid(selectedEvent)
+            }
         }
         
         val statisticsButton = Button("Estadísticas", Icon(VaadinIcon.CHART)) {
@@ -258,6 +306,26 @@ class SaleView(
         }
         
         return HorizontalLayout(refreshButton, statisticsButton)
+    }
+    
+    private fun createFiltersLayout(): HorizontalLayout {
+        val filtersLayout = HorizontalLayout()
+        filtersLayout.setWidthFull()
+        filtersLayout.isSpacing = true
+        filtersLayout.setAlignItems(FlexComponent.Alignment.END)
+        
+        // Configurar el eventSelector para que se vea mejor en el layout horizontal
+        eventSelector.setWidth("400px")
+        
+        // Configurar el dateFilter para que se vea mejor en el layout horizontal  
+        dateFilter.setWidth("300px")
+        
+        // Agregar margen inferior al layout de filtros
+        filtersLayout.element.style.set("margin-bottom", "16px")
+        
+        filtersLayout.add(eventSelector, dateFilter)
+        
+        return filtersLayout
     }
     
     private fun getBrandsForSale(sale: Sale): String {
@@ -416,8 +484,11 @@ class SaleView(
         
         // Información general de la venta
         val saleInfoLayout = VerticalLayout()
+        val mexicoZone = ZoneId.of("America/Mexico_City")
+        val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+        
         saleInfoLayout.add(
-            createInfoLine("📅 Fecha:", "${sale.saleDate.toLocalDate()} ${sale.saleDate.toLocalTime()}"),
+            createInfoLine("📅 Fecha:", "${mexicoDateTime.toLocalDate()} ${mexicoDateTime.toLocalTime()}"),
             createInfoLine("💳 Método de pago:", sale.paymentMethod),
             createInfoLine("💰 Total:", "$${sale.totalAmount}")
         )
@@ -518,6 +589,7 @@ class SaleView(
             val currentEvent = currentEvents.first() // Tomar el primer evento en curso
             eventSelector.value = currentEvent
             selectedEventId = currentEvent.id
+            updateDateFilterOptions(currentEvent)
             updateSalesGrid(currentEvent)
             
             Notification.show(
@@ -564,8 +636,18 @@ class SaleView(
     }
     
     private fun updateSalesGrid(event: Event) {
-        val sales = saleService.findByEvent(event).sortedBy { it.id }
-        grid.setItems(sales)
+        var sales = saleService.findByEvent(event)
+        
+        // Filtrar por fecha si hay una seleccionada
+        selectedDate?.let { date ->
+            val mexicoZone = ZoneId.of("America/Mexico_City")
+            sales = sales.filter { sale ->
+                val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+                mexicoDateTime.toLocalDate() == date
+            }
+        }
+        
+        grid.setItems(sales.sortedBy { it.id })
     }
     
     override fun beforeEnter(event: BeforeEnterEvent) {
@@ -578,6 +660,7 @@ class SaleView(
                 if (foundEvent != null) {
                     eventSelector.value = foundEvent
                     selectedEventId = eventId
+                    updateDateFilterOptions(foundEvent)
                     updateSalesGrid(foundEvent)
                     Notification.show(
                         "Mostrando ventas de: ${foundEvent.name}",
