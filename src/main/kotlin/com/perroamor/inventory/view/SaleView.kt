@@ -45,16 +45,21 @@ class SaleView(
     
     private val eventSelector = ComboBox<Event>("Evento")
     private val dateFilter = ComboBox<LocalDate>("Filtrar por Fecha")
+    private val brandFilter = ComboBox<String>("Filtrar por Marca")
+    private val totalSalesLabel = Span("Total mostrado: $0.00")
     private val grid = Grid(Sale::class.java)
     private val expandedSales = mutableSetOf<Long>()
     
     private var selectedEventId: Long? = null
     private var selectedDate: LocalDate? = null
+    private var selectedBrand: String? = null
     
     init {
         setSizeFull()
         setupEventSelector()
         setupDateFilter()
+        setupBrandFilter()
+        setupTotalSalesLabel()
         configureGrid()
         
         add(
@@ -80,9 +85,13 @@ class SaleView(
             } ?: run {
                 selectedEventId = null
                 selectedDate = null
+                selectedBrand = null
                 dateFilter.setItems(emptyList())
                 dateFilter.value = null
+                brandFilter.setItems(emptyList())
+                brandFilter.value = null
                 grid.setItems(emptyList())
+                updateTotalSalesLabel(emptyList())
             }
         }
     }
@@ -109,6 +118,31 @@ class SaleView(
         }
     }
     
+    private fun setupBrandFilter() {
+        brandFilter.element.style.set("font-size", "1.1em")
+        brandFilter.element.style.set("min-height", "45px")
+        brandFilter.placeholder = "Filtrar por marca (opcional)"
+        brandFilter.isClearButtonVisible = true
+        
+        brandFilter.addValueChangeListener { event ->
+            selectedBrand = event.value
+            eventSelector.value?.let { selectedEvent ->
+                updateSalesGrid(selectedEvent)
+            }
+        }
+    }
+    
+    private fun setupTotalSalesLabel() {
+        totalSalesLabel.element.style.set("font-weight", "bold")
+        totalSalesLabel.element.style.set("font-size", "1.1em")
+        totalSalesLabel.element.style.set("color", "var(--lumo-primary-text-color)")
+        totalSalesLabel.element.style.set("background-color", "var(--lumo-contrast-5pct)")
+        totalSalesLabel.element.style.set("padding", "8px 12px")
+        totalSalesLabel.element.style.set("border-radius", "var(--lumo-border-radius-m)")
+        totalSalesLabel.element.style.set("border", "1px solid var(--lumo-contrast-20pct)")
+        totalSalesLabel.element.style.set("white-space", "nowrap")
+    }
+    
     private fun updateDateFilterOptions(event: Event) {
         val sales = saleService.findByEvent(event)
         val mexicoZone = ZoneId.of("America/Mexico_City")
@@ -120,6 +154,30 @@ class SaleView(
         dateFilter.setItems(uniqueDates)
         selectedDate = null
         dateFilter.value = null
+        
+        // Actualizar opciones de marca
+        updateBrandFilterOptions(event)
+    }
+    
+    private fun updateBrandFilterOptions(event: Event) {
+        val sales = saleService.findByEvent(event)
+        val brands = mutableSetOf<String>()
+        
+        sales.forEach { sale ->
+            try {
+                val saleItems = saleService.findSaleItems(sale.id)
+                saleItems.forEach { item ->
+                    brands.add(item.product.brand)
+                }
+            } catch (e: Exception) {
+                // Ignorar errores al obtener items
+            }
+        }
+        
+        val sortedBrands = brands.toList().sorted()
+        brandFilter.setItems(sortedBrands)
+        selectedBrand = null
+        brandFilter.value = null
     }
     
     private fun configureGrid() {
@@ -313,20 +371,32 @@ class SaleView(
         filtersLayout.setWidthFull()
         filtersLayout.isSpacing = true
         filtersLayout.setAlignItems(FlexComponent.Alignment.END)
+        filtersLayout.justifyContentMode = FlexComponent.JustifyContentMode.BETWEEN
+        
+        // Layout izquierdo con los filtros
+        val leftFiltersLayout = HorizontalLayout()
+        leftFiltersLayout.isSpacing = true
+        leftFiltersLayout.setAlignItems(FlexComponent.Alignment.END)
         
         // Configurar el eventSelector para que se vea mejor en el layout horizontal
         eventSelector.setWidth("400px")
         
         // Configurar el dateFilter para que se vea mejor en el layout horizontal  
-        dateFilter.setWidth("300px")
+        dateFilter.setWidth("250px")
+        
+        // Configurar el brandFilter
+        brandFilter.setWidth("200px")
+        
+        leftFiltersLayout.add(eventSelector, dateFilter, brandFilter)
         
         // Agregar margen inferior al layout de filtros
         filtersLayout.element.style.set("margin-bottom", "16px")
         
-        filtersLayout.add(eventSelector, dateFilter)
+        filtersLayout.add(leftFiltersLayout, totalSalesLabel)
         
         return filtersLayout
     }
+    
     
     private fun getBrandsForSale(sale: Sale): String {
         return try {
@@ -647,7 +717,37 @@ class SaleView(
             }
         }
         
-        grid.setItems(sales.sortedBy { it.id })
+        // Filtrar por marca si hay una seleccionada
+        selectedBrand?.let { brand ->
+            sales = sales.filter { sale ->
+                try {
+                    val saleItems = saleService.findSaleItems(sale.id)
+                    saleItems.any { item -> item.product.brand == brand }
+                } catch (e: Exception) {
+                    false
+                }
+            }
+        }
+        
+        val sortedSales = sales.sortedBy { it.id }
+        grid.setItems(sortedSales)
+        
+        // Actualizar el total mostrado
+        updateTotalSalesLabel(sortedSales)
+    }
+    
+    private fun updateTotalSalesLabel(sales: List<Sale>) {
+        val total = sales.filter { !it.isCancelled }.sumOf { it.totalAmount }
+        val salesCount = sales.filter { !it.isCancelled }.size
+        val cancelledCount = sales.count { it.isCancelled }
+        
+        val totalText = if (cancelledCount > 0) {
+            "Total mostrado: $$total ($salesCount ventas${if (cancelledCount > 0) " + $cancelledCount canceladas" else ""})"
+        } else {
+            "Total mostrado: $$total ($salesCount ventas)"
+        }
+        
+        totalSalesLabel.text = totalText
     }
     
     override fun beforeEnter(event: BeforeEnterEvent) {
