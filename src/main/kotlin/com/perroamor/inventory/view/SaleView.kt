@@ -46,6 +46,7 @@ class SaleView(
     private val eventSelector = ComboBox<Event>("Evento")
     private val dateFilter = ComboBox<LocalDate>("Filtrar por Fecha")
     private val brandFilter = ComboBox<String>("Filtrar por Marca")
+    private val paymentMethodFilter = ComboBox<String>("Filtrar por Pago")
     private val totalSalesLabel = Span("Total mostrado: $0.00")
     private val grid = Grid(Sale::class.java)
     private val expandedSales = mutableSetOf<Long>()
@@ -53,12 +54,14 @@ class SaleView(
     private var selectedEventId: Long? = null
     private var selectedDate: LocalDate? = null
     private var selectedBrand: String? = null
+    private var selectedPaymentMethod: String? = null
     
     init {
         setSizeFull()
         setupEventSelector()
         setupDateFilter()
         setupBrandFilter()
+        setupPaymentMethodFilter()
         setupTotalSalesLabel()
         configureGrid()
         
@@ -86,10 +89,13 @@ class SaleView(
                 selectedEventId = null
                 selectedDate = null
                 selectedBrand = null
+                selectedPaymentMethod = null
                 dateFilter.setItems(emptyList())
                 dateFilter.value = null
                 brandFilter.setItems(emptyList())
                 brandFilter.value = null
+                paymentMethodFilter.setItems(emptyList())
+                paymentMethodFilter.value = null
                 grid.setItems(emptyList())
                 updateTotalSalesLabel(emptyList())
             }
@@ -132,6 +138,20 @@ class SaleView(
         }
     }
     
+    private fun setupPaymentMethodFilter() {
+        paymentMethodFilter.element.style.set("font-size", "1.1em")
+        paymentMethodFilter.element.style.set("min-height", "45px")
+        paymentMethodFilter.placeholder = "Filtrar por pago (opcional)"
+        paymentMethodFilter.isClearButtonVisible = true
+        
+        paymentMethodFilter.addValueChangeListener { event ->
+            selectedPaymentMethod = event.value
+            eventSelector.value?.let { selectedEvent ->
+                updateSalesGrid(selectedEvent)
+            }
+        }
+    }
+    
     private fun setupTotalSalesLabel() {
         totalSalesLabel.element.style.set("font-weight", "bold")
         totalSalesLabel.element.style.set("font-size", "1.1em")
@@ -155,8 +175,9 @@ class SaleView(
         selectedDate = null
         dateFilter.value = null
         
-        // Actualizar opciones de marca
+        // Actualizar opciones de marca y método de pago
         updateBrandFilterOptions(event)
+        updatePaymentMethodFilterOptions(event)
     }
     
     private fun updateBrandFilterOptions(event: Event) {
@@ -178,6 +199,15 @@ class SaleView(
         brandFilter.setItems(sortedBrands)
         selectedBrand = null
         brandFilter.value = null
+    }
+    
+    private fun updatePaymentMethodFilterOptions(event: Event) {
+        val sales = saleService.findByEvent(event)
+        val paymentMethods = sales.map { it.paymentMethod }.distinct().sorted()
+        
+        paymentMethodFilter.setItems(paymentMethods)
+        selectedPaymentMethod = null
+        paymentMethodFilter.value = null
     }
     
     private fun configureGrid() {
@@ -387,7 +417,10 @@ class SaleView(
         // Configurar el brandFilter
         brandFilter.setWidth("200px")
         
-        leftFiltersLayout.add(eventSelector, dateFilter, brandFilter)
+        // Configurar el paymentMethodFilter
+        paymentMethodFilter.setWidth("180px")
+        
+        leftFiltersLayout.add(eventSelector, dateFilter, brandFilter, paymentMethodFilter)
         
         // Agregar margen inferior al layout de filtros
         filtersLayout.element.style.set("margin-bottom", "16px")
@@ -726,6 +759,13 @@ class SaleView(
                 } catch (e: Exception) {
                     false
                 }
+            }
+        }
+        
+        // Filtrar por método de pago si hay uno seleccionado
+        selectedPaymentMethod?.let { paymentMethod ->
+            sales = sales.filter { sale ->
+                sale.paymentMethod == paymentMethod
             }
         }
         
