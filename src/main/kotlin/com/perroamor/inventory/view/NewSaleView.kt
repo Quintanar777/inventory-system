@@ -136,9 +136,6 @@ class NewSaleView(
         itemsGrid.addColumn { "$${it.getTotalPrice()}" }
             .setHeader("Total").setWidth("120px").setFlexGrow(0)
         
-        itemsGrid.addColumn { it.personalization ?: "-" }
-            .setHeader("Personalización").setFlexGrow(1)
-        
         itemsGrid.addComponentColumn { item ->
             val removeButton = Button(Icon(VaadinIcon.TRASH)) {
                 removeItem(item)
@@ -152,6 +149,7 @@ class NewSaleView(
         }.setHeader("").setWidth("60px").setFlexGrow(0)
         
         itemsGrid.height = "300px"
+        itemsGrid.element.style.set("font-size", "1.1em")
     }
     
     private fun createEventAndPaymentSection(): HorizontalLayout {
