@@ -32,6 +32,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
 
 @Route("sales", layout = MainLayout::class)
 @RouteAlias("sales/:eventId", layout = MainLayout::class)
@@ -106,9 +110,9 @@ class SaleView(
         dateFilter.setItemLabelGenerator { date ->
             val dayOfWeek = date.dayOfWeek.getDisplayName(
                 java.time.format.TextStyle.FULL, 
-                Locale("es", "ES")
+                Locale.of("es", "ES")
             ).uppercase()
-            val formatter = DateTimeFormatter.ofPattern("dd MMM", Locale("es", "ES"))
+            val formatter = DateTimeFormatter.ofPattern("dd MMM", Locale.of("es", "ES"))
             "$dayOfWeek ${date.format(formatter)}"
         }
         dateFilter.element.style.set("font-size", "1.1em")
@@ -387,13 +391,18 @@ class SaleView(
             }
         }
         
+        val downloadCsvButton = Button("Descargar CSV", Icon(VaadinIcon.DOWNLOAD)) {
+            downloadFilteredSalesAsCsv()
+        }
+        downloadCsvButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        
         val statisticsButton = Button("Estadísticas", Icon(VaadinIcon.CHART)) {
             eventSelector.value?.let { event -> 
                 eventStatisticsDialog.show(event)
             }
         }
         
-        return HorizontalLayout(refreshButton, statisticsButton)
+        return HorizontalLayout(refreshButton, downloadCsvButton, statisticsButton)
     }
     
     private fun createFiltersLayout(): HorizontalLayout {
@@ -788,6 +797,134 @@ class SaleView(
         }
         
         totalSalesLabel.text = totalText
+    }
+    
+    private fun downloadFilteredSalesAsCsv() {
+        eventSelector.value?.let { selectedEvent ->
+            try {
+                // Obtener las ventas filtradas usando la misma lógica que updateSalesGrid
+                var sales = saleService.findByEvent(selectedEvent)
+                
+                // Aplicar filtros
+                selectedDate?.let { date ->
+                    val mexicoZone = ZoneId.of("America/Mexico_City")
+                    sales = sales.filter { sale ->
+                        val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+                        mexicoDateTime.toLocalDate() == date
+                    }
+                }
+                
+                selectedBrand?.let { brand ->
+                    sales = sales.filter { sale ->
+                        try {
+                            val saleItems = saleService.findSaleItems(sale.id)
+                            saleItems.any { item -> item.product.brand == brand }
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                }
+                
+                selectedPaymentMethod?.let { paymentMethod ->
+                    sales = sales.filter { sale ->
+                        sale.paymentMethod == paymentMethod
+                    }
+                }
+                
+                val sortedSales = sales.sortedBy { it.id }
+                
+                // Generar CSV
+                val csvContent = generateCsvContent(sortedSales)
+                
+                // Crear nombre de archivo con timestamp
+                val mexicoZone = ZoneId.of("America/Mexico_City")
+                val now = java.time.LocalDateTime.now(mexicoZone)
+                val timestamp = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+                val fileName = "ventas_${selectedEvent.name.replace(" ", "_")}_$timestamp.csv"
+                
+                // Crear descarga usando JavaScript directo
+                val csvBytes = csvContent.toByteArray(StandardCharsets.UTF_8)
+                val base64Content = java.util.Base64.getEncoder().encodeToString(csvBytes)
+                val dataUrl = "data:text/csv;charset=utf-8;base64,$base64Content"
+                
+                // Usar JavaScript para triggear la descarga
+                ui.ifPresent { ui ->
+                    ui.page.executeJs(
+                        """
+                        const link = document.createElement('a');
+                        link.href = '$dataUrl';
+                        link.download = '$fileName';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        """
+                    )
+                }
+                
+                Notification.show(
+                    "✅ Descargando archivo CSV: $fileName",
+                    3000,
+                    Notification.Position.TOP_CENTER
+                )
+                
+            } catch (e: Exception) {
+                Notification.show(
+                    "Error al generar archivo CSV: ${e.message}",
+                    5000,
+                    Notification.Position.TOP_CENTER
+                )
+            }
+        } ?: run {
+            Notification.show(
+                "Debe seleccionar un evento primero",
+                3000,
+                Notification.Position.TOP_CENTER
+            )
+        }
+    }
+    
+    private fun generateCsvContent(sales: List<Sale>): String {
+        val csvBuilder = StringBuilder()
+        
+        // Encabezados CSV
+        csvBuilder.append("ID,Fecha,Hora,Total,Metodo_Pago,Estado,Cliente,Telefono,Marcas,Productos_Detalle\n")
+        
+        // Datos de ventas
+        sales.forEach { sale ->
+            val mexicoZone = ZoneId.of("America/Mexico_City")
+            val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
+            val date = mexicoDateTime.toLocalDate().toString()
+            val time = mexicoDateTime.toLocalTime().toString().substring(0, 5)
+            
+            val estado = when {
+                sale.isCancelled -> "Cancelada"
+                sale.isPaid -> "Pagada"
+                else -> "Pendiente"
+            }
+            
+            val customerName = sale.customerName?.let { "\"$it\"" } ?: ""
+            val customerPhone = sale.customerPhone ?: ""
+            
+            // Obtener información de productos
+            val brands = getBrandsForSale(sale)
+            val productDetails = try {
+                val saleItems = saleService.findSaleItems(sale.id)
+                saleItems.joinToString("; ") { item ->
+                    val productName = if (item.variant != null) {
+                        "${item.product.name} - ${item.variant!!.variantName}"
+                    } else {
+                        item.product.name
+                    }
+                    "$productName (${item.quantity}x $${item.unitPrice})"
+                }
+            } catch (e: Exception) {
+                "Error al obtener productos"
+            }
+            
+            csvBuilder.append("${sale.id},$date,$time,${sale.totalAmount},\"${sale.paymentMethod}\",$estado,$customerName,$customerPhone,\"$brands\",\"$productDetails\"\n")
+        }
+        
+        return csvBuilder.toString()
     }
     
     override fun beforeEnter(event: BeforeEnterEvent) {
