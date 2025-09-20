@@ -49,7 +49,6 @@ class NewSaleView(
     
     private val eventSelector = ComboBox<Event>("Evento")
     private val saleDateField = DateTimePicker("Fecha de Venta")
-    private val paymentMethodField = ComboBox<String>("Método de Pago")
     
     private val itemsGrid = Grid<SaleItemDialog.SaleItemData>()
     private val totalLabel = Span("TOTAL: $0.00")
@@ -117,8 +116,6 @@ class NewSaleView(
         saleDateField.locale = Locale.of("es", "MX")
         saleDateField.value = LocalDateTime.now(ZoneId.of("America/Mexico_City"))
         
-        paymentMethodField.setItems(paymentMethods)
-        paymentMethodField.value = "Efectivo" // Por defecto para ventas presenciales
     }
     
     private fun configureItemsGrid() {
@@ -163,10 +160,10 @@ class NewSaleView(
         
         // Sección de la venta
         val paymentSection = VerticalLayout()
-        paymentSection.add(H3("💳 Información de la Venta"))
+        paymentSection.add(H3("📅 Información de la Venta"))
         
         val paymentLayout = HorizontalLayout()
-        paymentLayout.add(saleDateField, paymentMethodField)
+        paymentLayout.add(saleDateField)
         paymentLayout.setWidthFull()
         
         paymentSection.add(paymentLayout)
@@ -445,20 +442,116 @@ class NewSaleView(
     private fun saveSale() {
         try {
             validateSale()
+            showPaymentMethodDialog()
+        } catch (e: Exception) {
+            Notification.show(
+                "Error al validar la venta: ${e.message}",
+                5000,
+                Notification.Position.TOP_CENTER
+            )
+        }
+    }
+    
+    private fun showPaymentMethodDialog() {
+        val dialog = Dialog()
+        dialog.headerTitle = "💳 Método de Pago"
+        dialog.element.style.set("--lumo-header-text-color", "var(--lumo-primary-text-color)")
+        
+        val content = VerticalLayout()
+        content.setWidth("500px")
+        content.isSpacing = true
+        content.isPadding = false
+        
+        val totalAmount = saleItems.sumOf { it.getTotalPrice() }
+        val totalLabel = Span("Total a pagar: $$totalAmount")
+        totalLabel.element.style.set("font-size", "1.3em")
+        totalLabel.element.style.set("font-weight", "bold")
+        totalLabel.element.style.set("color", "var(--lumo-primary-text-color)")
+        totalLabel.element.style.set("text-align", "center")
+        totalLabel.element.style.set("margin-bottom", "20px")
+        
+        content.add(totalLabel)
+        
+        val instructionLabel = Span("Selecciona el método de pago:")
+        instructionLabel.element.style.set("margin-bottom", "10px")
+        instructionLabel.element.style.set("color", "var(--lumo-secondary-text-color)")
+        content.add(instructionLabel)
+        
+        // Crear botones grandes para cada método de pago
+        paymentMethods.forEach { method ->
+            val button = Button(getPaymentMethodText(method)) {
+                processSaleWithPaymentMethod(method)
+                dialog.close()
+            }
             
+            // Estilo para botones grandes
+            button.setWidthFull()
+            button.element.style.set("height", "60px")
+            button.element.style.set("font-size", "1.2em")
+            button.element.style.set("margin", "5px 0")
+            
+            // Colores específicos por método de pago
+            when (method) {
+                "Efectivo" -> {
+                    button.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+                    button.element.style.set("background", "var(--lumo-success-color)")
+                    button.element.style.set("color", "white")
+                }
+                "Tarjeta" -> {
+                    button.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+                }
+                "Transferencia" -> {
+                    button.addThemeVariants(ButtonVariant.LUMO_CONTRAST)
+                }
+                else -> {
+                    button.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+                }
+            }
+            
+            content.add(button)
+        }
+        
+        val cancelButton = Button("Cancelar") {
+            dialog.close()
+        }
+        cancelButton.setWidthFull()
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY)
+        cancelButton.element.style.set("margin-top", "15px")
+        
+        content.add(cancelButton)
+        
+        dialog.add(content)
+        dialog.setCloseOnEsc(true)
+        dialog.setCloseOnOutsideClick(false)
+        dialog.open()
+    }
+    
+    private fun getPaymentMethodText(method: String): String {
+        return when (method) {
+            "Efectivo" -> "💵 $method"
+            "Tarjeta" -> "💳 $method"
+            "Transferencia" -> "🏦 $method"
+            "PayPal" -> "🟦 $method"
+            "Mercado Pago" -> "🟨 $method"
+            else -> method
+        }
+    }
+    
+    private fun processSaleWithPaymentMethod(paymentMethod: String) {
+        try {
             val event = eventSelector.value
             val sale = Sale(
                 event = event,
                 saleDate = saleDateField.value,
                 customerName = customerName,
                 customerPhone = customerPhone,
-                paymentMethod = paymentMethodField.value,
+                paymentMethod = paymentMethod,
                 totalAmount = saleItems.sumOf { it.getTotalPrice() }
             )
             
             val items = saleItems.map { itemData ->
                 SaleItem(
-                    sale = sale, // Se actualizará con la venta guardada
+                    sale = sale,
                     product = itemData.product,
                     variant = itemData.variant,
                     quantity = itemData.quantity,
@@ -471,12 +564,11 @@ class NewSaleView(
             saleService.saveWithItems(sale, items)
             
             Notification.show(
-                "¡Venta guardada exitosamente! Total: $${sale.totalAmount}",
+                "¡Venta guardada exitosamente!\nMétodo: $paymentMethod\nTotal: $${sale.totalAmount}",
                 5000,
                 Notification.Position.TOP_CENTER
             )
             
-            // Limpiar formulario después de guardar
             clearSale()
             
         } catch (e: Exception) {
@@ -490,7 +582,6 @@ class NewSaleView(
     
     private fun validateSale() {
         require(eventSelector.value != null) { "Debe seleccionar un evento" }
-        require(paymentMethodField.value.isNotBlank()) { "Debe seleccionar un método de pago" }
         require(saleItems.isNotEmpty()) { "Debe agregar al menos un producto a la venta" }
         require(saleDateField.value != null) { "Debe especificar la fecha de venta" }
     }
