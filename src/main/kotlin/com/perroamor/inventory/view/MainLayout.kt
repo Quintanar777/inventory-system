@@ -16,6 +16,8 @@ import com.vaadin.flow.component.sidenav.SideNav
 import com.vaadin.flow.component.sidenav.SideNavItem
 import com.vaadin.flow.router.PageTitle
 import com.vaadin.flow.theme.lumo.LumoUtility
+import com.vaadin.flow.component.ClientCallable
+import com.vaadin.flow.component.UI
 import com.perroamor.inventory.security.SecurityService
 import jakarta.annotation.security.PermitAll
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,16 +27,24 @@ import org.springframework.beans.factory.annotation.Autowired
 class MainLayout(@Autowired private val securityService: SecurityService) : AppLayout() {
 
     private lateinit var viewTitle: H1
+    private var isDrawerCollapsed = false
 
     init {
         setPrimarySection(Section.DRAWER)
         addDrawerContent()
         addHeaderContent()
+        configureCollapsibleDrawer()
     }
 
     private fun addHeaderContent() {
         val toggle = DrawerToggle()
         toggle.setAriaLabel("Menu toggle")
+        
+        // Personalizar el comportamiento del toggle
+        toggle.addClickListener {
+            isDrawerCollapsed = !isDrawerCollapsed
+            updateDrawerState()
+        }
 
         viewTitle = H1()
         viewTitle.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.Margin.NONE)
@@ -78,6 +88,7 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
             LumoUtility.Display.FLEX
         )
         header.style.set("padding", "var(--lumo-space-m)")
+        header.addClassName("drawer-header")
 
         // Información del usuario al inicio del menú
         val userInfo = createUserInfoSection()
@@ -97,6 +108,7 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         userInfoLayout.style.set("padding", "var(--lumo-space-s) var(--lumo-space-m)")
         userInfoLayout.style.set("border-bottom", "1px solid var(--lumo-contrast-10pct)")
         userInfoLayout.style.set("margin-bottom", "var(--lumo-space-s)")
+        userInfoLayout.addClassName("user-info")
 
         if (securityService.isAuthenticated()) {
             val currentUser = securityService.getAuthenticatedUser()
@@ -121,6 +133,7 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
         logoutLayout.isPadding = false
         logoutLayout.style.set("padding", "var(--lumo-space-m)")
         logoutLayout.style.set("border-top", "1px solid var(--lumo-contrast-10pct)")
+        logoutLayout.addClassName("logout-section")
 
         if (securityService.isAuthenticated()) {
             val logoutButton = Button("Cerrar Sesión", Icon(VaadinIcon.SIGN_OUT)) {
@@ -217,5 +230,100 @@ class MainLayout(@Autowired private val securityService: SecurityService) : AppL
     private fun getCurrentPageTitle(): String {
         val title = content.javaClass.getAnnotation(PageTitle::class.java)
         return title?.value ?: "Perro Amor"
+    }
+
+    private fun updateDrawerState() {
+        if (isDrawerCollapsed) {
+            // Forzar que el drawer permanezca abierto pero en modo colapsado
+            setDrawerOpened(true)
+            element.setAttribute("drawer-collapsed", "")
+            // Usar JavaScript para ajustar el layout dinámicamente
+            UI.getCurrent().page.executeJs("""
+                const appLayout = document.querySelector('vaadin-app-layout');
+                if (appLayout) {
+                    appLayout.style.setProperty('--vaadin-app-layout-drawer-offset', '4rem');
+                    const drawer = appLayout.shadowRoot.querySelector('[part="drawer"]');
+                    if (drawer) {
+                        drawer.style.width = '4rem';
+                    }
+                }
+            """)
+        } else {
+            // Drawer expandido normal
+            setDrawerOpened(true)
+            element.removeAttribute("drawer-collapsed")
+            // Restaurar el layout normal
+            UI.getCurrent().page.executeJs("""
+                const appLayout = document.querySelector('vaadin-app-layout');
+                if (appLayout) {
+                    appLayout.style.setProperty('--vaadin-app-layout-drawer-offset', '16rem');
+                    const drawer = appLayout.shadowRoot.querySelector('[part="drawer"]');
+                    if (drawer) {
+                        drawer.style.width = '16rem';
+                    }
+                }
+            """)
+        }
+    }
+
+    private fun configureCollapsibleDrawer() {
+        // Agregar CSS personalizado para el drawer colapsible
+        val css = """
+            /* Transiciones suaves */
+            vaadin-app-layout [slot=drawer] {
+                transition: width 0.3s ease;
+            }
+            
+            /* Estilos para elementos dentro del drawer colapsado */
+            vaadin-app-layout[drawer-collapsed] .drawer-header span,
+            vaadin-app-layout[drawer-collapsed] .user-info span,
+            vaadin-app-layout[drawer-collapsed] .logout-section button span {
+                display: none;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] .drawer-header {
+                justify-content: center;
+                padding: var(--lumo-space-s);
+            }
+            
+            vaadin-app-layout[drawer-collapsed] .user-info {
+                display: none;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] vaadin-side-nav-item::part(content) {
+                padding: var(--lumo-space-s);
+                justify-content: center;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] vaadin-side-nav-item::part(label) {
+                display: none;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] vaadin-side-nav-item {
+                justify-content: center;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] .logout-section {
+                padding: var(--lumo-space-s);
+            }
+            
+            vaadin-app-layout[drawer-collapsed] .logout-section button {
+                width: auto !important;
+                padding: var(--lumo-space-s) !important;
+                justify-content: center !important;
+                margin: 0 auto;
+                min-width: auto;
+            }
+            
+            vaadin-app-layout[drawer-collapsed] .logout-section button span {
+                display: none;
+            }
+        """.trimIndent()
+        
+        UI.getCurrent().page.executeJs(
+            "const style = document.createElement('style'); " +
+            "style.textContent = $0; " +
+            "document.head.appendChild(style);", css
+        )
     }
 }
