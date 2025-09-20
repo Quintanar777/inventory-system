@@ -89,7 +89,7 @@ class EventView(@Autowired private val eventService: EventService) : VerticalLay
                 navigateToNewSale(event)
             }.apply {
                 addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_PRIMARY)
-                element.setAttribute("title", "Nueva Venta")
+                element.setAttribute("title", "🛒 Nueva Venta")
             }
             
             val viewSalesButton = Button("Ver Ventas", Icon(VaadinIcon.LIST)) {

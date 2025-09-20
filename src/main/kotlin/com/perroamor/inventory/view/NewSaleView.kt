@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import jakarta.annotation.security.RolesAllowed
 import java.math.BigDecimal
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.*
 
 @Route("new-sale", layout = MainLayout::class)
@@ -74,7 +75,6 @@ class NewSaleView(
         configureItemsGrid()
         
         add(
-            H2("🛒 Nueva Venta"),
             createEventAndPaymentSection(),
             createItemsSection(),
             createTotalSection(),
@@ -98,7 +98,7 @@ class NewSaleView(
             event.value?.let { selectedEvent ->
                 selectedEventId = selectedEvent.id
                 // Configurar fecha de venta dentro del rango del evento
-                val now = LocalDateTime.now()
+                val now = LocalDateTime.now(ZoneId.of("America/Mexico_City"))
                 val eventStart = selectedEvent.startDate.atStartOfDay()
                 val eventEnd = selectedEvent.endDate.atTime(23, 59, 59)
                 
@@ -115,7 +115,7 @@ class NewSaleView(
     
     private fun configureForm() {
         saleDateField.locale = Locale.of("es", "MX")
-        saleDateField.value = LocalDateTime.now()
+        saleDateField.value = LocalDateTime.now(ZoneId.of("America/Mexico_City"))
         
         paymentMethodField.setItems(paymentMethods)
         paymentMethodField.value = "Efectivo" // Por defecto para ventas presenciales
