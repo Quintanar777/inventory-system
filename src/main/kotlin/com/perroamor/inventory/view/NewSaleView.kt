@@ -150,8 +150,8 @@ class NewSaleView(
             )
             removeButton
         }.setHeader("").setWidth("60px").setFlexGrow(0)
-        
-        itemsGrid.height = "300px"
+
+        itemsGrid.height = "200px"
         itemsGrid.element.style.set("font-size", "1.1em")
     }
     
@@ -167,15 +167,18 @@ class NewSaleView(
         headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
         headerLayout.setAlignItems(FlexComponent.Alignment.CENTER)
 
-        val headerTitle = H3("📅 Información del Evento y Venta")
+        // Ocultar la etiqueta para ahorrar espacio en iPad
+        // val headerTitle = H3("📅 Información del Evento y Venta")
 
         collapseButton = Button(Icon(VaadinIcon.ANGLE_UP)) {
             toggleEventSection()
         }
         collapseButton!!.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
-        collapseButton!!.element.setAttribute("title", "Contraer/Expandir sección")
+        collapseButton!!.element.setAttribute("title", "Contraer/Expandir sección del evento")
 
-        headerLayout.add(headerTitle, collapseButton)
+        // Solo agregar el botón de colapso, sin título
+        headerLayout.add(collapseButton)
+        headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.END)
 
         // Contenido colapsable (toda la fila)
         contentLayout = HorizontalLayout()
@@ -214,12 +217,12 @@ class NewSaleView(
         // Cambiar el ícono del botón
         if (isEventSectionCollapsed) {
             collapseButton?.icon = Icon(VaadinIcon.ANGLE_DOWN)
-            // Aumentar altura del grid cuando la sección está contraída
-            itemsGrid.height = "450px"
+            // Aumentar altura del grid cuando la sección está contraída (2/3 de 450px = 300px)
+            itemsGrid.height = "300px"
         } else {
             collapseButton?.icon = Icon(VaadinIcon.ANGLE_UP)
-            // Altura normal del grid
-            itemsGrid.height = "300px"
+            // Altura normal del grid (2/3 de 300px = 200px)
+            itemsGrid.height = "200px"
         }
 
         val action = if (isEventSectionCollapsed) "contraída" else "expandida"
