@@ -61,11 +61,18 @@ class NewSaleView(
     
     private var selectedEventId: Long? = null
     private var lastWholesaleMode: Boolean = false
-    
+
     // Customer information fields
     private var customerName: String? = null
     private var customerPhone: String? = null
     private var customerInfoLabel: Span? = null
+
+    // Event section collapse state
+    private var isEventSectionCollapsed: Boolean = false
+    private var eventSectionContent: VerticalLayout? = null
+    private var paymentSectionContent: VerticalLayout? = null
+    private var collapseButton: Button? = null
+    private var contentLayout: HorizontalLayout? = null
     
     init {
         setSizeFull()
@@ -148,32 +155,81 @@ class NewSaleView(
         itemsGrid.element.style.set("font-size", "1.1em")
     }
     
-    private fun createEventAndPaymentSection(): HorizontalLayout {
-        val layout = HorizontalLayout()
-        layout.setWidthFull()
-        
+    private fun createEventAndPaymentSection(): VerticalLayout {
+        val mainLayout = VerticalLayout()
+        mainLayout.setWidthFull()
+        mainLayout.isSpacing = false
+        mainLayout.isPadding = false
+
+        // Header con botón de colapso
+        val headerLayout = HorizontalLayout()
+        headerLayout.setWidthFull()
+        headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
+        headerLayout.setAlignItems(FlexComponent.Alignment.CENTER)
+
+        val headerTitle = H3("📅 Información del Evento y Venta")
+
+        collapseButton = Button(Icon(VaadinIcon.ANGLE_UP)) {
+            toggleEventSection()
+        }
+        collapseButton!!.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
+        collapseButton!!.element.setAttribute("title", "Contraer/Expandir sección")
+
+        headerLayout.add(headerTitle, collapseButton)
+
+        // Contenido colapsable (toda la fila)
+        contentLayout = HorizontalLayout()
+        contentLayout!!.setWidthFull()
+
         // Sección del evento
-        val eventSection = VerticalLayout()
-        eventSection.add(H3("📅 Información del Evento"))
-        eventSection.add(eventSelector)
-        
+        eventSectionContent = VerticalLayout()
+        eventSectionContent!!.add(H3("📅 Evento"))
+        eventSectionContent!!.add(eventSelector)
+
         // Sección de la venta
-        val paymentSection = VerticalLayout()
-        paymentSection.add(H3("📅 Información de la Venta"))
-        
+        paymentSectionContent = VerticalLayout()
+        paymentSectionContent!!.add(H3("📅 Venta"))
+
         val paymentLayout = HorizontalLayout()
         paymentLayout.add(saleDateField)
         paymentLayout.setWidthFull()
-        
-        paymentSection.add(paymentLayout)
-        
+
+        paymentSectionContent!!.add(paymentLayout)
+
         // Agregar ambas secciones al layout horizontal
-        layout.add(eventSection, paymentSection)
-        layout.setFlexGrow(1.0, eventSection, paymentSection)
-        
-        return layout
+        contentLayout!!.add(eventSectionContent, paymentSectionContent)
+        contentLayout!!.setFlexGrow(1.0, eventSectionContent, paymentSectionContent)
+
+        mainLayout.add(headerLayout, contentLayout)
+
+        return mainLayout
     }
-    
+
+    private fun toggleEventSection() {
+        isEventSectionCollapsed = !isEventSectionCollapsed
+
+        // Ocultar/mostrar toda la fila de contenido (evento + venta)
+        contentLayout?.isVisible = !isEventSectionCollapsed
+
+        // Cambiar el ícono del botón
+        if (isEventSectionCollapsed) {
+            collapseButton?.icon = Icon(VaadinIcon.ANGLE_DOWN)
+            // Aumentar altura del grid cuando la sección está contraída
+            itemsGrid.height = "450px"
+        } else {
+            collapseButton?.icon = Icon(VaadinIcon.ANGLE_UP)
+            // Altura normal del grid
+            itemsGrid.height = "300px"
+        }
+
+        val action = if (isEventSectionCollapsed) "contraída" else "expandida"
+        Notification.show(
+            "Sección $action",
+            1000,
+            Notification.Position.TOP_CENTER
+        )
+    }
+
     private fun createItemsSection(): VerticalLayout {
         val layout = VerticalLayout()
         
@@ -181,31 +237,33 @@ class NewSaleView(
         headerLayout.add(H3("🛍️ Productos de la Venta"))
         headerLayout.setWidthFull()
         
-        val addButton = Button("Agregar Producto", Icon(VaadinIcon.PLUS)) {
-            addProduct()
+        // Ocultar el botón "Agregar Producto" - se comenta para mantener funcionalidad disponible pero no visible
+        // val addButton = Button("Agregar Producto", Icon(VaadinIcon.PLUS)) {
+        //     addProduct()
+        // }
+        // addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+
+        // Usar un botón normal con un submenu simulado en lugar de MenuBar
+        val searchButton = Button("🔍 Buscar (iPad)", Icon(VaadinIcon.MOBILE)) {
+            showSearchOptionsDialog()
         }
-        addButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        
-        val mobileSearchMenu = MenuBar()
-        mobileSearchMenu.element.style.set("margin-left", "8px")
-        
-        val searchMenuItem = mobileSearchMenu.addItem("🔍 Buscar (iPad)")
-        searchMenuItem.addComponentAsFirst(Icon(VaadinIcon.MOBILE))
-        searchMenuItem.addThemeNames("success")
-        
-        searchMenuItem.subMenu.addItem("💰 Precios Menudeo") {
-            openMobileSearch(isWholesale = false)
-        }
-        
-        searchMenuItem.subMenu.addItem("🏪 Precios Mayoreo") {
-            openMobileSearch(isWholesale = true)
-        }
-        
+        searchButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        searchButton.element.style.set("margin-left", "8px")
+        searchButton.element.style.set("height", "50px")
+        searchButton.element.style.set("font-size", "1.2em")
+        searchButton.element.style.set("padding", "0 20px")
+        searchButton.element.style.set("min-width", "150px")
+
+
         val addMoreButton = Button("Agregar Más", Icon(VaadinIcon.CART)) {
             addMoreProducts()
         }
         addMoreButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
         addMoreButton.element.style.set("margin-left", "8px")
+        addMoreButton.element.style.set("height", "50px")
+        addMoreButton.element.style.set("font-size", "1.2em")
+        addMoreButton.element.style.set("padding", "0 20px")
+        addMoreButton.element.style.set("min-width", "150px")
 
         val saveButton = Button("💾 Guardar Venta", Icon(VaadinIcon.CHECK)) {
             saveSale()
@@ -217,7 +275,7 @@ class NewSaleView(
         saveButton.element.style.set("padding", "0 20px")
         saveButton.element.style.set("min-width", "180px")
 
-        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu, addMoreButton, saveButton)
+        val buttonsLayout = HorizontalLayout(searchButton, addMoreButton, saveButton)
         buttonsLayout.isSpacing = true
         
         headerLayout.add(buttonsLayout)
@@ -363,7 +421,44 @@ class NewSaleView(
             updateTotal()
         }
     }
-    
+
+    private fun showSearchOptionsDialog() {
+        val dialog = Dialog()
+        dialog.headerTitle = "🔍 Opciones de Búsqueda"
+
+        val content = VerticalLayout()
+        content.setWidth("300px")
+        content.isSpacing = true
+
+        val menudeoButton = Button("💰 Precios Menudeo") {
+            openMobileSearch(isWholesale = false)
+            dialog.close()
+        }
+        menudeoButton.setWidthFull()
+        menudeoButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        menudeoButton.element.style.set("height", "45px")
+        menudeoButton.element.style.set("font-size", "1.1em")
+
+        val mayoreoButton = Button("🏪 Precios Mayoreo") {
+            openMobileSearch(isWholesale = true)
+            dialog.close()
+        }
+        mayoreoButton.setWidthFull()
+        mayoreoButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
+        mayoreoButton.element.style.set("height", "45px")
+        mayoreoButton.element.style.set("font-size", "1.1em")
+
+        val cancelButton = Button("Cancelar") {
+            dialog.close()
+        }
+        cancelButton.setWidthFull()
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+
+        content.add(menudeoButton, mayoreoButton, cancelButton)
+        dialog.add(content)
+        dialog.open()
+    }
+
     private fun openMobileSearch(isWholesale: Boolean) {
         if (selectedEventId == null) {
             Notification.show("Selecciona un evento primero", 3000, Notification.Position.TOP_CENTER)
