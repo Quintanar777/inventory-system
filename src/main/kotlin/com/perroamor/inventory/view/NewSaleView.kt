@@ -76,7 +76,6 @@ class NewSaleView(
         add(
             createEventAndPaymentSection(),
             createItemsSection(),
-            createTotalSection(),
             createActionButtons()
         )
         
@@ -207,15 +206,25 @@ class NewSaleView(
         }
         addMoreButton.addThemeVariants(ButtonVariant.LUMO_SUCCESS)
         addMoreButton.element.style.set("margin-left", "8px")
-        
-        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu, addMoreButton)
+
+        val saveButton = Button("💾 Guardar Venta", Icon(VaadinIcon.CHECK)) {
+            saveSale()
+        }
+        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
+        saveButton.element.style.set("margin-left", "8px")
+        saveButton.element.style.set("height", "50px")
+        saveButton.element.style.set("font-size", "1.2em")
+        saveButton.element.style.set("padding", "0 20px")
+        saveButton.element.style.set("min-width", "180px")
+
+        val buttonsLayout = HorizontalLayout(addButton, mobileSearchMenu, addMoreButton, saveButton)
         buttonsLayout.isSpacing = true
         
         headerLayout.add(buttonsLayout)
         headerLayout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
         headerLayout.setVerticalComponentAlignment(FlexComponent.Alignment.CENTER, buttonsLayout)
         
-        layout.add(headerLayout, itemsGrid, createCustomerInfoSection())
+        layout.add(headerLayout, itemsGrid, createCustomerInfoSection(), createTotalSection())
         return layout
     }
     
@@ -310,34 +319,35 @@ class NewSaleView(
     
     private fun createTotalSection(): HorizontalLayout {
         val layout = HorizontalLayout()
-        totalLabel.style.set("font-size", "1.5em")
+        totalLabel.style.set("font-size", "1.8em")
         totalLabel.style.set("font-weight", "bold")
         totalLabel.style.set("color", "var(--lumo-primary-text-color)")
-        
+        totalLabel.style.set("background-color", "var(--lumo-contrast-5pct)")
+        totalLabel.style.set("padding", "10px 20px")
+        totalLabel.style.set("border-radius", "8px")
+        totalLabel.style.set("border", "2px solid var(--lumo-primary-color)")
+
         layout.add(totalLabel)
         layout.setJustifyContentMode(FlexComponent.JustifyContentMode.END)
         layout.setWidthFull()
-        
+        layout.element.style.set("margin-top", "15px")
+        layout.element.style.set("margin-bottom", "10px")
+
         return layout
     }
     
     private fun createActionButtons(): HorizontalLayout {
         val layout = HorizontalLayout()
-        
+
         val clearButton = Button("Limpiar Todo", Icon(VaadinIcon.REFRESH)) {
             clearSale()
         }
         clearButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
-        
-        val saveButton = Button("💾 Guardar Venta", Icon(VaadinIcon.CHECK)) {
-            saveSale()
-        }
-        saveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS)
-        
-        layout.add(clearButton, saveButton)
-        layout.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN)
+
+        layout.add(clearButton)
+        layout.setJustifyContentMode(FlexComponent.JustifyContentMode.START)
         layout.setWidthFull()
-        
+
         return layout
     }
     
