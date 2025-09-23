@@ -692,10 +692,11 @@ class SaleView(
     private fun updateEventList() {
         val currentEvents = eventService.findCurrentEvents()
         val upcomingEvents = eventService.findUpcomingEvents()
-        val allActiveEvents = (currentEvents + upcomingEvents).distinctBy { it.id }
-        
-        eventSelector.setItems(allActiveEvents)
-        
+        val pastEvents = eventService.findPastEvents()
+        val allEvents = (currentEvents + upcomingEvents + pastEvents).distinctBy { it.id }
+
+        eventSelector.setItems(allEvents)
+
         // Auto-seleccionar evento en curso si existe y no hay uno ya seleccionado por URL
         if (selectedEventId == null && currentEvents.isNotEmpty()) {
             val currentEvent = currentEvents.first() // Tomar el primer evento en curso
@@ -703,7 +704,7 @@ class SaleView(
             selectedEventId = currentEvent.id
             updateDateFilterOptions(currentEvent)
             updateSalesGrid(currentEvent)
-            
+
             Notification.show(
                 "✅ Evento en curso seleccionado: ${currentEvent.name}",
                 3000,
