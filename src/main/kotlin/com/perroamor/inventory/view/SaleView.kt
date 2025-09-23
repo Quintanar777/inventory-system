@@ -8,6 +8,7 @@ import com.perroamor.inventory.service.EventService
 import com.perroamor.inventory.view.component.EventStatisticsDialog
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.checkbox.Checkbox
 import com.vaadin.flow.component.combobox.ComboBox
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog
 import com.vaadin.flow.component.grid.Grid
@@ -51,6 +52,7 @@ class SaleView(
     private val dateFilter = ComboBox<LocalDate>("Filtrar por Fecha")
     private val brandFilter = ComboBox<String>("Filtrar por Marca")
     private val paymentMethodFilter = ComboBox<String>("Filtrar por Pago")
+    private val brandOnlyCheckbox = Checkbox("Reporte solo de marca seleccionada")
     private val totalSalesLabel = Span("Total mostrado: $0.00")
     private val grid = Grid(Sale::class.java)
     private val expandedSales = mutableSetOf<Long>()
@@ -66,16 +68,17 @@ class SaleView(
         setupDateFilter()
         setupBrandFilter()
         setupPaymentMethodFilter()
+        setupBrandOnlyCheckbox()
         setupTotalSalesLabel()
         configureGrid()
-        
+
         add(
             H2("Gestión de Ventas"),
             createToolbar(),
             createFiltersLayout(),
             grid
         )
-        
+
         updateEventList()
     }
     
@@ -147,11 +150,26 @@ class SaleView(
         paymentMethodFilter.element.style.set("min-height", "45px")
         paymentMethodFilter.placeholder = "Filtrar por pago (opcional)"
         paymentMethodFilter.isClearButtonVisible = true
-        
+
         paymentMethodFilter.addValueChangeListener { event ->
             selectedPaymentMethod = event.value
             eventSelector.value?.let { selectedEvent ->
                 updateSalesGrid(selectedEvent)
+            }
+        }
+    }
+
+    private fun setupBrandOnlyCheckbox() {
+        brandOnlyCheckbox.element.style.set("font-size", "1.0em")
+        brandOnlyCheckbox.element.style.set("margin-top", "8px")
+        brandOnlyCheckbox.tooltip.text = "Al generar CSV, incluye solo productos de la marca seleccionada y ajusta los totales"
+        brandOnlyCheckbox.isEnabled = false // Se habilita solo cuando hay marca seleccionada
+
+        // Se habilita/deshabilita según la selección de marca
+        brandFilter.addValueChangeListener { event ->
+            brandOnlyCheckbox.isEnabled = event.value != null
+            if (event.value == null) {
+                brandOnlyCheckbox.value = false
             }
         }
     }
@@ -430,11 +448,17 @@ class SaleView(
         paymentMethodFilter.setWidth("180px")
         
         leftFiltersLayout.add(eventSelector, dateFilter, brandFilter, paymentMethodFilter)
-        
+
+        // Layout vertical para incluir checkbox debajo de los filtros
+        val filtersAndCheckboxLayout = VerticalLayout()
+        filtersAndCheckboxLayout.isPadding = false
+        filtersAndCheckboxLayout.isSpacing = false
+        filtersAndCheckboxLayout.add(leftFiltersLayout, brandOnlyCheckbox)
+
         // Agregar margen inferior al layout de filtros
         filtersLayout.element.style.set("margin-bottom", "16px")
-        
-        filtersLayout.add(leftFiltersLayout, totalSalesLabel)
+
+        filtersLayout.add(filtersAndCheckboxLayout, totalSalesLabel)
         
         return filtersLayout
     }
@@ -834,14 +858,16 @@ class SaleView(
                 
                 val sortedSales = sales.sortedBy { it.id }
                 
-                // Generar CSV
-                val csvContent = generateCsvContent(sortedSales)
+                // Generar CSV con el filtro de marca si está activado
+                val brandOnlyMode = brandOnlyCheckbox.value && selectedBrand != null
+                val csvContent = generateCsvContent(sortedSales, brandOnlyMode, selectedBrand)
                 
                 // Crear nombre de archivo con timestamp
                 val mexicoZone = ZoneId.of("America/Mexico_City")
                 val now = java.time.LocalDateTime.now(mexicoZone)
                 val timestamp = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
-                val fileName = "ventas_${selectedEvent.name.replace(" ", "_")}_$timestamp.csv"
+                val brandSuffix = if (brandOnlyMode) "_${selectedBrand!!.replace(" ", "_")}" else ""
+                val fileName = "ventas_${selectedEvent.name.replace(" ", "_")}${brandSuffix}_$timestamp.csv"
                 
                 // Crear descarga usando JavaScript directo
                 val csvBytes = csvContent.toByteArray(StandardCharsets.UTF_8)
@@ -862,8 +888,14 @@ class SaleView(
                     )
                 }
                 
+                val message = if (brandOnlyMode) {
+                    "✅ Descargando CSV filtrado por marca '$selectedBrand': $fileName"
+                } else {
+                    "✅ Descargando archivo CSV: $fileName"
+                }
+
                 Notification.show(
-                    "✅ Descargando archivo CSV: $fileName",
+                    message,
                     3000,
                     Notification.Position.TOP_CENTER
                 )
@@ -884,33 +916,54 @@ class SaleView(
         }
     }
     
-    private fun generateCsvContent(sales: List<Sale>): String {
+    private fun generateCsvContent(sales: List<Sale>, brandOnlyMode: Boolean = false, selectedBrand: String? = null): String {
         val csvBuilder = StringBuilder()
-        
+
         // Encabezados CSV
         csvBuilder.append("ID,Fecha,Hora,Total,Metodo_Pago,Estado,Cliente,Telefono,Marcas,Productos_Detalle\n")
-        
+
         // Datos de ventas
         sales.forEach { sale ->
             val mexicoZone = ZoneId.of("America/Mexico_City")
             val mexicoDateTime = sale.saleDate.atZone(ZoneId.systemDefault()).withZoneSameInstant(mexicoZone)
             val date = mexicoDateTime.toLocalDate().toString()
             val time = mexicoDateTime.toLocalTime().toString().substring(0, 5)
-            
+
             val estado = when {
                 sale.isCancelled -> "Cancelada"
                 sale.isPaid -> "Pagada"
                 else -> "Pendiente"
             }
-            
+
             val customerName = sale.customerName?.let { "\"$it\"" } ?: ""
             val customerPhone = sale.customerPhone ?: ""
-            
-            // Obtener información de productos
-            val brands = getBrandsForSale(sale)
-            val productDetails = try {
+
+            try {
                 val saleItems = saleService.findSaleItems(sale.id)
-                saleItems.joinToString("; ") { item ->
+
+                // Si está en modo "solo marca", filtrar items por marca seleccionada
+                val filteredItems = if (brandOnlyMode && selectedBrand != null) {
+                    saleItems.filter { it.product.brand == selectedBrand }
+                } else {
+                    saleItems
+                }
+
+                // Calcular total según el modo
+                val totalAmount = if (brandOnlyMode && selectedBrand != null) {
+                    filteredItems.sumOf { it.totalPrice }
+                } else {
+                    sale.totalAmount
+                }
+
+                // Obtener marcas de los items filtrados
+                val brands = if (brandOnlyMode && selectedBrand != null) {
+                    filteredItems.map { it.product.brand }.distinct().sorted().joinToString(", ")
+                } else {
+                    getBrandsForSale(sale)
+                }
+
+                // Detalles de productos filtrados
+                val productDetails = filteredItems.joinToString("; ") { item ->
                     val productName = if (item.variant != null) {
                         "${item.product.name} - ${item.variant!!.variantName}"
                     } else {
@@ -918,13 +971,20 @@ class SaleView(
                     }
                     "$productName (${item.quantity}x $${item.unitPrice})"
                 }
+
+                // Solo agregar la venta si tiene productos después del filtro
+                if (filteredItems.isNotEmpty()) {
+                    csvBuilder.append("${sale.id},$date,$time,$totalAmount,\"${sale.paymentMethod}\",$estado,$customerName,$customerPhone,\"$brands\",\"$productDetails\"\n")
+                }
+
             } catch (e: Exception) {
-                "Error al obtener productos"
+                // En caso de error, incluir la venta con información limitada solo si no está en modo marca específica
+                if (!brandOnlyMode) {
+                    csvBuilder.append("${sale.id},$date,$time,${sale.totalAmount},\"${sale.paymentMethod}\",$estado,$customerName,$customerPhone,\"Error\",\"Error al obtener productos\"\n")
+                }
             }
-            
-            csvBuilder.append("${sale.id},$date,$time,${sale.totalAmount},\"${sale.paymentMethod}\",$estado,$customerName,$customerPhone,\"$brands\",\"$productDetails\"\n")
         }
-        
+
         return csvBuilder.toString()
     }
     
